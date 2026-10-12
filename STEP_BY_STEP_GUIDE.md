@@ -6,7 +6,7 @@ This guide takes the project from extraction to a working local demonstration. K
 
 1. A customer opens the Contact Us page, enters an international-format WhatsApp number, optionally checks the WhatsApp questionnaire box, and clicks **Send Enquiry**.
 2. The app saves the contact in MongoDB's `contacts` collection.
-3. If the customer checked the WhatsApp box, the server sends the configured start template from a registered sender. With the Twilio Sandbox sender, it opens the Sandbox chat and the customer must send the prefilled `Hi` message. If unchecked, no WhatsApp conversation is started.
+3. If the customer checked the WhatsApp box, the server sends the submitted name, email, phone, and location question. A registered sender uses an approved template; the Twilio Sandbox uses free-form text when the customer has joined and the 24-hour session is open. If unchecked, no WhatsApp conversation is started.
 4. When the customer replies, Twilio POSTs the message to the app's `/webhooks/whatsapp` endpoint.
 5. The bot asks the selected property questions and stores conversation state in `whatsapp_conversations`.
 6. When the questionnaire is complete, the answers are saved in `property_leads` and shown in the CRM.
@@ -76,7 +76,7 @@ Use the sender in E.164 format (country code plus number), without the `whatsapp
 
 ### Sandbox or production?
 
-- **Sandbox inbound demonstration:** each test phone must first send the Sandbox join phrase. The form redirects to the Sandbox chat; the customer sends the prefilled `Hi` to start the questionnaire. The Sandbox supports only its pre-approved templates for business-initiated messages; a custom property-questionnaire start template cannot be used as the Sandbox's form-triggered start.
+- **Sandbox inbound demonstration:** each test phone must first send the Sandbox join phrase. This opens the 24-hour customer service window; the form can then send the location question as free-form text. The Sandbox supports only its pre-approved templates for business-initiated messages; a custom property-questionnaire start template cannot be used as the Sandbox's form-triggered start.
 - **Automatic custom start on form submit:** use a registered WhatsApp sender and an approved start template in that sender's Twilio account. The form notice tells customers that submitting opts them in to the WhatsApp follow-up; retain this clear notice and honor `STOP` replies.
 
 WhatsApp requires explicit opt-in and approved templates for business-initiated conversations. See [Twilio WhatsApp requirements](https://www.twilio.com/docs/whatsapp/api) and [Sandbox limitations](https://www.twilio.com/docs/whatsapp/sandbox).
@@ -95,7 +95,7 @@ The script prints `HX...` Content SIDs. Copy each printed line into the correspo
 - planning, budget, payment category/subcategory, and BHK list-picker SIDs
 - `TWILIO_QUICK_REPLY_MOBILE_SID`
 
-Submit the `property_contact_start` template for WhatsApp approval in Twilio Console. Its opening message is “Thanks for your interest! 🏡 Which location or area are you looking for a property in?” The first template must be approved before it can start a business-initiated chat. The list-picker and quick-reply templates are used after the customer has replied. If Twilio reports `ContentSid is Invalid`, confirm the SID is an `HX...` SID from this same account and was copied without spaces. The Sandbox cannot send this custom start template; use a registered WhatsApp sender for this form-triggered flow.
+Submit the `property_contact_start` template for WhatsApp approval in Twilio Console. It contains placeholders for the submitted name, email, and phone, followed by the first location question. The new template must be approved before it can start a business-initiated chat. The list-picker and quick-reply templates are used after the recipient replies. If Twilio reports `ContentSid is Invalid`, confirm the SID is an `HX...` SID from the same account and was copied without spaces. The Sandbox can send the details and question as free-form text only while the customer service window is open.
 
 ## 7. Run the app and expose a local HTTPS webhook
 

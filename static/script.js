@@ -5,6 +5,7 @@ const successMessage = document.getElementById("successMessage");
 const errorPopup = document.getElementById("errorPopup");
 const errorMessage = document.getElementById("errorMessage");
 let fieldToFocusAfterError = null;
+let redirectToWhatsAppAfterSuccess = false;
 
 function showPopup() {
   popup.hidden = false;
@@ -12,6 +13,10 @@ function showPopup() {
 }
 function hidePopup() {
   popup.hidden = true;
+  if (redirectToWhatsAppAfterSuccess) {
+    redirectToWhatsAppAfterSuccess = false;
+    window.location.assign("/whatsapp");
+  }
 }
 document.getElementById("popupOk").addEventListener("click", hidePopup);
 document.getElementById("popupClose").addEventListener("click", hidePopup);
@@ -90,15 +95,16 @@ form.addEventListener("submit", async (e) => {
     const data = await res.json();
 
     if (res.ok) {
-      if (whatsappOptIn && data.whatsapp_status === "sandbox_customer_action_required") {
-        window.location.assign("/whatsapp");
-        return;
-      }
+      redirectToWhatsAppAfterSuccess = whatsappOptIn && (
+        data.whatsapp_started || data.whatsapp_status === "sandbox_session_required"
+      );
       if (whatsappOptIn && data.whatsapp_started) {
-        successMessage.textContent = "Your enquiry was sent. Check WhatsApp at the number you provided for our message.";
+        successMessage.textContent = "Your enquiry details and first property question were sent. Select OK to open WhatsApp.";
       } else {
         if (whatsappOptIn) {
-          successMessage.textContent = "Your enquiry was sent, but we couldn't start the WhatsApp message. Our team will contact you soon.";
+          successMessage.textContent = data.whatsapp_status === "sandbox_session_required"
+            ? "Your enquiry was saved. Select OK to open the Twilio Sandbox chat, then send the prefilled Hi to start the questionnaire."
+            : "Your enquiry was sent, but we couldn't start the WhatsApp message. Our team will contact you soon.";
         } else {
           successMessage.textContent = "Your details have been sent. Our team will contact you shortly.";
         }

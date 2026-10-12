@@ -147,8 +147,17 @@ start_sid = create_content(
     "property_contact_start",
     {
         "twilio/text": {
-            "body": "Thanks for your interest! 🏡\n\nWhich location or area are you looking for a property in?"
+            "body": (
+                "Thanks for your property enquiry, {{1}}. We have your details: "
+                "email {{2}} and phone {{3}}. What city or area are you looking to buy in? "
+                "Reply STOP to opt out."
+            )
         }
+    },
+    variables={
+        "1": "Asha Sharma",
+        "2": "asha@example.com",
+        "3": "+919876543210",
     },
 )
 created["TWILIO_WHATSAPP_START_TEMPLATE_SID"] = start_sid

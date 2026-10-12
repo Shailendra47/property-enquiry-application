@@ -21,22 +21,20 @@ TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 START_TEMPLATE_SID = os.getenv("TWILIO_WHATSAPP_START_TEMPLATE_SID", "")
-START_TEMPLATE_VARIABLES = os.getenv("TWILIO_WHATSAPP_START_TEMPLATE_VARIABLES", "").strip()
 
 
-def start_template_variables() -> dict | None:
-    """Load optional WhatsApp template variables without storing them in code."""
-    if not START_TEMPLATE_VARIABLES:
-        return None
-    try:
-        variables = json.loads(START_TEMPLATE_VARIABLES)
-    except json.JSONDecodeError:
-        logger.error("TWILIO_WHATSAPP_START_TEMPLATE_VARIABLES must be valid JSON.")
-        return None
-    if not isinstance(variables, dict):
-        logger.error("TWILIO_WHATSAPP_START_TEMPLATE_VARIABLES must be a JSON object.")
-        return None
-    return {str(key): str(value) for key, value in variables.items()}
+def start_template_variables(full_name: str, email: str, phone: str) -> dict[str, str]:
+    """Fill the approved start template with the customer's submitted details."""
+    return {"1": full_name, "2": email, "3": phone}
+
+
+def start_message_text(full_name: str, email: str, phone: str) -> str:
+    """Build the Sandbox in-session message with the form details and first question."""
+    return (
+        f"Thanks for your property enquiry, {full_name}. "
+        f"We have your details: email {email} and phone {phone}. "
+        f"{TEXT_PROMPTS['q5_location']}"
+    )
 
 def whatsapp_configuration() -> dict:
     public_origin = PUBLIC_BASE_URL.casefold()
@@ -201,6 +199,24 @@ def send_content(to_phone: str, content_sid: str, variables: dict | None = None)
     except Exception:
         logger.exception("Could not send WhatsApp message to %s", to_phone)
         return None
+
+
+def send_text(to_phone: str, body: str) -> str | None:
+    """Send an in-session WhatsApp message, used for the Twilio Sandbox."""
+    if not all((TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM, body)):
+        logger.error("WhatsApp text skipped: Twilio credentials, sender, or message is missing.")
+        return None
+    try:
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        message = client.messages.create(
+            from_=f"whatsapp:{TWILIO_WHATSAPP_FROM}",
+            to=f"whatsapp:{to_phone}",
+            body=body,
+        )
+        return message.sid
+    except Exception:
+        logger.exception("Could not send WhatsApp text to %s", to_phone)
+        return None
     
     
 async def start_questionnaire(
@@ -233,6 +249,27 @@ async def start_questionnaire(
         }},
         upsert=True,
     )
+    is_sandbox = re.sub(r"\D", "", TWILIO_WHATSAPP_FROM) == "14155238886"
+    if is_sandbox:
+        # The Sandbox rejects custom Content SIDs. A joined customer has an
+        # open service window, so start with a regular in-session text instead.
+        message_sid = await run_in_threadpool(
+            send_text,
+            phone,
+            start_message_text(full_name, email, phone),
+        )
+        if not message_sid:
+            await conversations.update_one(
+                {"phone": phone},
+                {"$set": {"status": "awaiting_customer_start", "updated_at": datetime.now(timezone.utc)}},
+            )
+            return {"started": False, "status": "sandbox_session_required"}
+        await conversations.update_one(
+            {"phone": phone},
+            {"$set": {"status": "awaiting_location", "start_message_sid": message_sid, "updated_at": datetime.now(timezone.utc)}},
+        )
+        return {"started": True, "status": "accepted"}
+
     if not whatsapp_configuration()["outbound_configured"]:
         missing = whatsapp_configuration()["missing_outbound_settings"]
         logger.error("WhatsApp start message skipped: configure %s in .env.", ", ".join(missing))
@@ -245,7 +282,7 @@ async def start_questionnaire(
         send_content,
         phone,
         START_TEMPLATE_SID,
-        start_template_variables(),
+        start_template_variables(full_name, email, phone),
     )
     if not message_sid:
         await conversations.update_one(

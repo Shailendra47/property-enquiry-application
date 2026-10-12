@@ -63,8 +63,8 @@ from whatsapp_bot import (
     find_list_stage,
     list_choice,
     menu_fallback,
-    router as whatsapp_router,
     start_questionnaire,
+    start_message_text,
     twiml,
     whatsapp_configuration,
 )
@@ -84,7 +84,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Property Contact Form", lifespan=lifespan)
-app.include_router(whatsapp_router)
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
@@ -216,43 +215,14 @@ async def create_contact(form: ContactForm, background_tasks: BackgroundTasks):
 
     whatsapp_result = {"started": False, "status": "not_requested", "missing": []}
     if form.whatsapp_opt_in:
-        if TWILIO_WHATSAPP_SANDBOX:
-            name_parts = form.full_name.strip().split(maxsplit=1)
-            now = datetime.now(timezone.utc)
-            await app.state.whatsapp_conversations.update_one(
-                {"phone": whatsapp_phone},
-                {
-                    "$set": {
-                        "phone": whatsapp_phone,
-                        "contact_id": str(result.inserted_id),
-                        "stage": "q5_location",
-                        "answers": {
-                            "first_name": name_parts[0] if name_parts else "",
-                            "last_name": name_parts[1] if len(name_parts) > 1 else "",
-                            "email": str(form.email),
-                            "mobile_number": whatsapp_phone,
-                        },
-                        "status": "awaiting_customer_start",
-                        "updated_at": now,
-                    },
-                    "$setOnInsert": {"created_at": now},
-                },
-                upsert=True,
-            )
-            whatsapp_result = {
-                "started": False,
-                "status": "sandbox_customer_action_required",
-                "missing": [],
-            }
-        else:
-            whatsapp_result = await start_questionnaire(
-                app.state.whatsapp_conversations,
-                phone=whatsapp_phone,
-                contact_id=str(result.inserted_id),
-                background_tasks=background_tasks,
-                full_name=form.full_name,
-                email=str(form.email),
-            )
+        whatsapp_result = await start_questionnaire(
+            app.state.whatsapp_conversations,
+            phone=whatsapp_phone,
+            contact_id=str(result.inserted_id),
+            background_tasks=background_tasks,
+            full_name=form.full_name,
+            email=str(form.email),
+        )
 
     return {
         "message": "Your enquiry was saved.",
@@ -565,7 +535,15 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             {"phone": phone},
             {"$set": {"status": "awaiting_location", "updated_at": datetime.now(timezone.utc)}},
         )
-        return twiml(TEXT_PROMPTS["q5_location"])
+        answers = conversation.get("answers", {})
+        full_name = " ".join(
+            part for part in (answers.get("first_name", ""), answers.get("last_name", "")) if part
+        )
+        return twiml(start_message_text(
+            full_name,
+            answers.get("email", ""),
+            answers.get("mobile_number", phone),
+        ))
 
     stage = conversation.get("stage", "q1_first_name")
     answers = conversation.get("answers", {})
