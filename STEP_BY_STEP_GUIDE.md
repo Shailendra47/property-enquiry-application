@@ -6,7 +6,7 @@ This guide takes the project from extraction to a working local demonstration. K
 
 1. A customer opens the Contact Us page, enters an international-format WhatsApp number, optionally checks the WhatsApp questionnaire box, and clicks **Send Enquiry**.
 2. The app saves the contact in MongoDB's `contacts` collection.
-3. If the customer checked the WhatsApp box, the server asks Twilio to send the configured WhatsApp start template. If unchecked, no WhatsApp message is sent.
+3. If the customer checked the WhatsApp box, the server sends the configured start template from a registered sender. With the Twilio Sandbox sender, it opens the Sandbox chat and the customer must send the prefilled `Hi` message. If unchecked, no WhatsApp conversation is started.
 4. When the customer replies, Twilio POSTs the message to the app's `/webhooks/whatsapp` endpoint.
 5. The bot asks the selected property questions and stores conversation state in `whatsapp_conversations`.
 6. When the questionnaire is complete, the answers are saved in `property_leads` and shown in the CRM.
@@ -76,7 +76,7 @@ Use the sender in E.164 format (country code plus number), without the `whatsapp
 
 ### Sandbox or production?
 
-- **Sandbox inbound demonstration:** each test phone must first send the Sandbox join phrase. The Sandbox can receive inbound messages and exercise the questionnaire. It supports only its pre-approved templates for business-initiated messages; a custom property-questionnaire start template cannot be used as the Sandbox's form-triggered start.
+- **Sandbox inbound demonstration:** each test phone must first send the Sandbox join phrase. The form redirects to the Sandbox chat; the customer sends the prefilled `Hi` to start the questionnaire. The Sandbox supports only its pre-approved templates for business-initiated messages; a custom property-questionnaire start template cannot be used as the Sandbox's form-triggered start.
 - **Automatic custom start on form submit:** use a registered WhatsApp sender and an approved start template in that sender's Twilio account. The form notice tells customers that submitting opts them in to the WhatsApp follow-up; retain this clear notice and honor `STOP` replies.
 
 WhatsApp requires explicit opt-in and approved templates for business-initiated conversations. See [Twilio WhatsApp requirements](https://www.twilio.com/docs/whatsapp/api) and [Sandbox limitations](https://www.twilio.com/docs/whatsapp/sandbox).
@@ -142,7 +142,7 @@ Choose **POST** and save. For a registered WhatsApp sender, open **Messaging →
 ### Test automatic form-triggered opening message
 
 1. Use a registered WhatsApp sender with an approved start template. The template created by `create_twilio_content.py` says “Thanks for your interest! 🏡 Which location or area are you looking for a property in?” The Sandbox cannot send this custom start template.
-2. Confirm all four required outbound settings are valid: Account SID, Auth Token, WhatsApp sender, and approved start-template SID.
+2. Confirm all four required outbound settings are valid: Account SID, Auth Token, registered WhatsApp sender, and approved start-template SID.
 3. Open `/`, enter a number that has opted in and can receive messages, then click **Send Enquiry**.
 4. The app saves the contact and calls Twilio. The confirmation shows whether Twilio accepted the request. Acceptance means Twilio created the message; check **Twilio Console → Messaging → Logs** for final delivery status.
 5. Reply with a city or area to continue the questionnaire. The contact form's name, email, and phone are carried into the conversation, so the WhatsApp flow begins with location and continues with planning date, budget, payment choice, home type, and optional remarks.

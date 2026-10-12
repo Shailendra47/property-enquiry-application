@@ -292,3 +292,137 @@ body {
 @media (max-height: 720px) and (min-width: 992px) {
   .page { align-items: flex-start; padding-top: 1.25rem; padding-bottom: 1.25rem; }
 }
+
+/* ===== No scrollbar + centered layout (desktop) ===== */
+
+/* Keep everything inside the viewport and hide any scrollbar */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* old Edge */
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar { display: none; }  /* Chrome, Edge, Safari */
+
+/* Center the headline and the form */
+.page > .row {
+  justify-content: center;
+  align-items: center;
+}
+.headline {
+  max-width: none;
+  margin: 0 auto;
+  text-align: center;
+}
+.form-card {
+  margin: 0 auto;
+  text-align: left;   /* keep labels and inputs readable */
+}
+
+/* On phones/tablets the content can be taller than the screen,
+   so allow scrolling there while keeping the scrollbar hidden */
+@media (max-width: 991.98px) {
+  html, body { height: auto; overflow-y: auto; }
+}
+/* ===== Reference layout: yellow blobs left, hero text, form card right ===== */
+html, body { height: 100%; }
+body { background: #fff; }
+
+@media (min-width: 992px) {
+  html, body { overflow: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+}
+
+.blob { pointer-events: none; }
+.blob-1 { width: 480px; height: 480px; top: -150px; left: -120px; background: #fdeaa8; opacity: 1; }
+.blob-2 { width: 460px; height: 460px; top: 230px; left: 40px; background: #fcd93f; opacity: .9; }
+.blob-3 { width: 620px; height: 620px; bottom: -330px; left: -120px; background: #fde26b; opacity: .95; }
+
+.contact-main {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+}
+
+.contact-layout {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 480px);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 6rem);
+  padding: 3rem clamp(1.5rem, 6vw, 8rem) 3rem clamp(2rem, 9vw, 10rem);
+  margin: 0;
+  width: 100%;
+}
+
+.hero-text { text-align: left; }
+.kicker {
+  font-size: .95rem;
+  font-weight: 600;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin: 1.5rem 0 0;
+}
+.headline {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 4.8vw, 4.8rem);
+  line-height: 1.06;
+  letter-spacing: -.005em;
+  color: var(--ink);
+  max-width: 11ch;
+  margin: 0;
+  text-align: left;
+}
+.subhead {
+  font-size: 1.42rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #555;
+  margin-top: .75rem;
+  max-width: 36ch;
+}
+.form-wrap { width: 100%; justify-self: end; }
+.form-card {
+  max-width: 480px;
+  width: 100%;
+  margin: 0 0 0 auto;
+  text-align: left;
+  padding: 2.25rem 2rem;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .16);
+}
+.form-title { font-size: 1.75rem; font-weight: 800; margin-bottom: 1.5rem; }
+
+@media (max-width: 991.98px) {
+  html, body { height: auto; overflow-y: auto; }
+  .contact-layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    min-height: auto;
+    gap: 2rem;
+    padding: 2.5rem 1.25rem 3rem;
+  }
+  .hero-text { text-align: center; }
+  .kicker { margin-top: 1rem; }
+  .headline {
+    text-align: center;
+    margin: 0 auto;
+    max-width: 14ch;
+    font-size: clamp(2.2rem, 7.5vw, 3.4rem);
+  }
+  .form-wrap { justify-self: center; max-width: 520px; }
+  .form-card { margin: 0 auto; }
+  .blob-2 { top: 320px; left: -140px; }
+}
+
+@media (max-width: 575.98px) {
+  .form-card { padding: 1.5rem 1.25rem; }
+  .form-title { font-size: 1.4rem; }
+  .blob-1 { width: 360px; height: 360px; top: -140px; left: -170px; }
+  .blob-3 { width: 420px; height: 420px; bottom: -220px; left: -160px; }
+}

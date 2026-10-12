@@ -19,6 +19,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from pymongo import AsyncMongoClient
 from pymongo.errors import PyMongoError
 from starlette.middleware.sessions import SessionMiddleware
+from twilio.request_validator import RequestValidator
 
 load_dotenv()
 
@@ -39,8 +40,10 @@ CALENDLY_URL = os.getenv("CALENDLY_URL", "https://calendly.com/shailendra-profil
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 WHATSAPP_BUSINESS_NUMBER = os.getenv("WHATSAPP_BUSINESS_NUMBER", "")
+TWILIO_WHATSAPP_SANDBOX = re.sub(r"\D", "", TWILIO_WHATSAPP_FROM) == "14155238886"
 IST = timezone(timedelta(hours=5, minutes=30))
 
 logger = logging.getLogger("uvicorn.error")
@@ -54,8 +57,17 @@ if not SESSION_SECRET:
         "Set SESSION_SECRET in .env to keep people logged in across restarts."
     )
 
-from whatsapp_bot import router as whatsapp_router, start_questionnaire, whatsapp_configuration
-import traceback
+from whatsapp_bot import (
+    TEXT_PROMPTS,
+    dispatch_stage,
+    find_list_stage,
+    list_choice,
+    menu_fallback,
+    router as whatsapp_router,
+    start_questionnaire,
+    twiml,
+    whatsapp_configuration,
+)
 
 
 @asynccontextmanager
@@ -73,13 +85,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Property Contact Form", lifespan=lifespan)
 app.include_router(whatsapp_router)
-# app.add_middleware(
-#     SessionMiddleware,
-#     secret_key=SESSION_SECRET,
-#     session_cookie="admin_session",
-#     max_age=60 * 60 * 8,  # 8 hours
-#     same_site="lax",
-# )
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    session_cookie="admin_session",
+    max_age=60 * 60 * 8,
+    same_site="lax",
+)
 @app.middleware("http")
 async def debug_requests(request: Request, call_next):
     print("REQUEST RECEIVED:", request.method, request.url)
@@ -173,42 +185,83 @@ async def create_contact(form: ContactForm, background_tasks: BackgroundTasks):
     doc = form.model_dump()
     if not doc.get("requirement"):
         doc.pop("requirement", None)
+
     whatsapp_phone = re.sub(r"[\s()-]", "", form.contact_number)
     if not re.fullmatch(r"\+[1-9][0-9]{7,14}", whatsapp_phone):
         raise HTTPException(
             status_code=422,
             detail="Enter the WhatsApp number in international format, e.g. +919876543210.",
         )
+
     doc["contact_number"] = whatsapp_phone
     doc["created_at"] = datetime.now(timezone.utc)
     if form.whatsapp_opt_in:
-        doc["whatsapp_opt_in_source"] = "contact_us_checkbox"
+        doc["whatsapp_opt_in_source"] = "contact_form_checkbox"
         doc["whatsapp_opt_in_at"] = datetime.now(timezone.utc)
+
     try:
         result = await app.state.contacts.insert_one(doc)
     except PyMongoError:
-        raise HTTPException(status_code=500, detail="Could not save your details. Please try again.")
-    background_tasks.add_task(send_confirmation_email, form.full_name, form.email, "our properties")
-    whatsapp_result = (
-        await start_questionnaire(
-            app.state.whatsapp_conversations,
-            phone=whatsapp_phone,
-            contact_id=str(result.inserted_id),
-            background_tasks=background_tasks,
-            full_name=form.full_name,
-            email=str(form.email),
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save your details. Please try again.",
         )
-        if form.whatsapp_opt_in
-        else {"started": False, "status": "not_requested"}
+
+    background_tasks.add_task(
+        send_confirmation_email,
+        form.full_name,
+        str(form.email),
+        "our properties",
     )
+
+    whatsapp_result = {"started": False, "status": "not_requested", "missing": []}
+    if form.whatsapp_opt_in:
+        if TWILIO_WHATSAPP_SANDBOX:
+            name_parts = form.full_name.strip().split(maxsplit=1)
+            now = datetime.now(timezone.utc)
+            await app.state.whatsapp_conversations.update_one(
+                {"phone": whatsapp_phone},
+                {
+                    "$set": {
+                        "phone": whatsapp_phone,
+                        "contact_id": str(result.inserted_id),
+                        "stage": "q5_location",
+                        "answers": {
+                            "first_name": name_parts[0] if name_parts else "",
+                            "last_name": name_parts[1] if len(name_parts) > 1 else "",
+                            "email": str(form.email),
+                            "mobile_number": whatsapp_phone,
+                        },
+                        "status": "awaiting_customer_start",
+                        "updated_at": now,
+                    },
+                    "$setOnInsert": {"created_at": now},
+                },
+                upsert=True,
+            )
+            whatsapp_result = {
+                "started": False,
+                "status": "sandbox_customer_action_required",
+                "missing": [],
+            }
+        else:
+            whatsapp_result = await start_questionnaire(
+                app.state.whatsapp_conversations,
+                phone=whatsapp_phone,
+                contact_id=str(result.inserted_id),
+                background_tasks=background_tasks,
+                full_name=form.full_name,
+                email=str(form.email),
+            )
+
     return {
-        "message": "Thank you! We will contact you shortly.",
+        "message": "Your enquiry was saved.",
+        "email_status": "queued",
         "whatsapp_started": whatsapp_result["started"],
         "whatsapp_status": whatsapp_result["status"],
         "whatsapp_missing_settings": whatsapp_result.get("missing", []),
         "id": str(result.inserted_id),
     }
-
 
 CHOICES = {
     "planning_to_buy": [
@@ -444,9 +497,9 @@ async def enquiry_page():
 
 @app.get("/whatsapp", include_in_schema=False)
 async def start_whatsapp_chat():
-    # The user sends the first message themselves, so the bot can reply without
-    # an outbound template. Set WHATSAPP_BUSINESS_NUMBER in international format.
-    number = re.sub(r"\D", "", WHATSAPP_BUSINESS_NUMBER)
+    # The visitor starts the chat, which also supports Twilio Sandbox testing.
+    target = WHATSAPP_BUSINESS_NUMBER or (TWILIO_WHATSAPP_FROM if TWILIO_WHATSAPP_SANDBOX else "")
+    number = re.sub(r"\D", "", target)
     if not number:
         raise HTTPException(status_code=503, detail="WhatsApp chat is not configured")
     return RedirectResponse(
@@ -456,51 +509,27 @@ async def start_whatsapp_chat():
 
 @app.post("/webhooks/whatsapp")
 async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
-    print("here")
-    
     form = await request.form()
     params = dict(form)
     if not TWILIO_AUTH_TOKEN or not PUBLIC_BASE_URL:
         raise HTTPException(status_code=503, detail="Twilio webhook is not configured")
+
     signature = request.headers.get("X-Twilio-Signature", "")
     webhook_url = f"{PUBLIC_BASE_URL}/webhooks/whatsapp"
-    try:
-        print("========== WHATSAPP WEBHOOK ==========")
-        print("URL:", webhook_url)
-        print("PARAMS:", params)
-        print("SIGNATURE:", repr(signature))
-        print("AUTH TOKEN EXISTS:", bool(TWILIO_AUTH_TOKEN))
 
+    try:
         valid = RequestValidator(TWILIO_AUTH_TOKEN).validate(
             webhook_url,
             params,
             signature,
         )
-
-        print("SIGNATURE VALID:", valid)
-
         if not valid:
-            raise RuntimeError("Twilio signature validation failed")
-
-    except Exception:
-        print("========== EXCEPTION ==========")
-        traceback.print_exc()
+            raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+    except HTTPException:
         raise
-
-    sender = str(form.get("From", ""))
-
-    # ...rest of your existing code
-    # if not RequestValidator(TWILIO_AUTH_TOKEN).validate(webhook_url, params, signature):
-    #     raise HTTPException(status_code=403, detail="Invalid Twilio signature")
-    try:
-        if not RequestValidator(TWILIO_AUTH_TOKEN).validate(
-            webhook_url, params, signature
-        ):
-            raise ValueError("Twilio signature validation failed")
-
     except Exception:
-        traceback.print_exc()
-        raise
+        logger.exception("Twilio webhook validation failed")
+        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
     sender = str(form.get("From", ""))
     if not sender.startswith("whatsapp:"):
@@ -531,6 +560,12 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
         return twiml()
     if conversation.get("status") == "complete":
         return twiml("Your answers have already been recorded. Our team will contact you shortly.")
+    if conversation.get("status") == "awaiting_customer_start":
+        await conversations.update_one(
+            {"phone": phone},
+            {"$set": {"status": "awaiting_location", "updated_at": datetime.now(timezone.utc)}},
+        )
+        return twiml(TEXT_PROMPTS["q5_location"])
 
     stage = conversation.get("stage", "q1_first_name")
     answers = conversation.get("answers", {})
@@ -564,7 +599,7 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             next_stage = "q10_remarks"
         else:
             answers["payment_option"] = stored_value
-            next_stage = next_after_preferences(stage)
+            next_stage = "q9_bhk"
         await conversations.update_one(
             {"phone": phone},
             {"$set": {"answers": answers, "stage": next_stage, "updated_at": datetime.now(timezone.utc)}},

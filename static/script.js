@@ -76,6 +76,8 @@ form.addEventListener("submit", async (e) => {
 
   const formData = new FormData(form);
   const payload = Object.fromEntries(formData.entries());
+  const whatsappOptIn = form.elements.namedItem("whatsapp_opt_in").checked;
+  payload.whatsapp_opt_in = whatsappOptIn;
   submitBtn.disabled = true;
   submitBtn.textContent = "Sending...";
 
@@ -88,15 +90,19 @@ form.addEventListener("submit", async (e) => {
     const data = await res.json();
 
     if (res.ok) {
-      form.reset();
-      form.classList.remove("was-validated");
-      successMessage.textContent = data.whatsapp_status === "accepted"
-        ? "Your enquiry is saved and Twilio accepted the WhatsApp start message. Open WhatsApp and reply to continue with the property questions."
-        : data.whatsapp_status === "not_requested"
-          ? "Your enquiry is saved. You did not select WhatsApp questionnaire delivery."
-        : data.whatsapp_status === "configuration_missing"
-          ? `Your enquiry is saved, but WhatsApp is not configured yet. Add these settings to the server .env file, then restart the app: ${(data.whatsapp_missing_settings || []).join(", ")}.`
-          : "Your enquiry is saved, but Twilio rejected the WhatsApp start message. Check the app terminal and Twilio Messaging Logs for the error. Sandbox messaging only supports its pre-approved templates.";
+      if (whatsappOptIn && data.whatsapp_status === "sandbox_customer_action_required") {
+        window.location.assign("/whatsapp");
+        return;
+      }
+      if (whatsappOptIn && data.whatsapp_started) {
+        successMessage.textContent = "Your enquiry was sent. Check WhatsApp at the number you provided for our message.";
+      } else {
+        if (whatsappOptIn) {
+          successMessage.textContent = "Your enquiry was sent, but we couldn't start the WhatsApp message. Our team will contact you soon.";
+        } else {
+          successMessage.textContent = "Your details have been sent. Our team will contact you shortly.";
+        }
+      }
       showPopup();
     } else {
       showError(presentApiError(data, res.status));
