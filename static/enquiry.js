@@ -83,7 +83,7 @@ form.addEventListener("submit", async (e) => {
       form.classList.remove("was-validated");
       showPopup();
     } else if (res.status === 422) {
-      alert("Please check your details and try again.");
+      alert(data.detail || "Please choose a verified location and check your details.");
     } else {
       alert(data.detail || "Something went wrong.");
     }
@@ -99,15 +99,6 @@ form.addEventListener("submit", async (e) => {
 const locInput = document.getElementById("location_preference");
 const locList = document.getElementById("locList");
 let locTimer, locAbort, locItems = [], locActive = -1;
-
-function locParts(p) {
-  const seen = new Set();
-  return [p.name, p.locality, p.district, p.city, p.county, p.state].filter((v) => {
-    if (!v || seen.has(v.toLowerCase())) return false;
-    seen.add(v.toLowerCase());
-    return true;
-  });
-}
 
 function hideLocations() {
   locList.hidden = true;
@@ -127,28 +118,23 @@ function showLocMessage(text) {
 
 function renderLocations() {
   if (!locItems.length) {
-    showLocMessage("No matching place found - you can type your own");
+    showLocMessage("No suggestions found. You can enter the place name and it will be verified when you submit.");
     return;
   }
   locList.innerHTML = "";
   locActive = -1;
-  locItems.forEach((parts, i) => {
+  locItems.forEach((label, i) => {
     const li = document.createElement("li");
     li.setAttribute("role", "option");
     li.dataset.i = i;
-    li.textContent = parts[0];
-    if (parts.length > 1) {
-      const sub = document.createElement("small");
-      sub.textContent = parts.slice(1).join(", ");
-      li.appendChild(sub);
-    }
+    li.textContent = label;
     locList.appendChild(li);
   });
   locList.hidden = false;
 }
 
 function pickLocation(i) {
-  locInput.value = locItems[i].join(", ");
+  locInput.value = locItems[i];
   hideLocations();
 }
 
@@ -164,27 +150,17 @@ async function searchLocations(q) {
   if (locAbort) locAbort.abort();
   locAbort = new AbortController();
   showLocMessage("Searching...");
-  const params = new URLSearchParams({ q, limit: 10, lang: "en", bbox: "68.1,6.7,97.4,35.7" }); // India
+  const params = new URLSearchParams({ q });
   try {
-    const res = await fetch("https://photon.komoot.io/api/?" + params, { signal: locAbort.signal });
+    const res = await fetch("/api/locations?" + params, { signal: locAbort.signal });
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
-    const seen = new Set();
-    locItems = data.features
-      .filter((f) => (f.properties.countrycode ? f.properties.countrycode === "IN" : f.properties.country === "India"))
-      .map((f) => locParts(f.properties))
-      .filter((parts) => {
-        const key = parts.join(", ").toLowerCase();
-        if (!parts.length || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .slice(0, 5);
+    locItems = data.locations || [];
     renderLocations();
   } catch (err) {
     if (err.name === "AbortError") return;
     console.error("Location search failed:", err);
-    showLocMessage("Suggestions are unavailable right now - you can type your own"); // the field still works as plain text
+    showLocMessage("Suggestions are unavailable. You can still submit a place name for verification.");
   }
 }
 

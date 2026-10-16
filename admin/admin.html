@@ -293,7 +293,7 @@ const ENTITIES = {
     columns: [["Date", r => fmt(r.created_at)], ["Name", r => `${r.first_name} ${r.last_name || ""}`.trim()],
               ["Email", r => r.email], ["Mobile Number", r => r.mobile_number], ["Location", r => r.location_preference],
               ["Planning to Buy", r => r.planning_to_buy], ["Budget Range", r => r.budget_range],
-              ["Payment Option", r => r.payment_option], ["BHK", r => r.bhk_preference], ["Remarks", r => r.remarks || "-", "wrap"]],
+              ["Payment Option", r => r.payment_option], ["BHK", r => r.bhk_preference], ["Remarks / Requirements", r => r.remarks_requirements || r.remarks || "-", "wrap"]],
     fields: [
       {name:"first_name", label:"First Name", type:"text", required:true},
       {name:"last_name", label:"Last Name", type:"text", required:false},
@@ -304,7 +304,7 @@ const ENTITIES = {
       {name:"budget_range", label:"Budget Range", type:"select", options:OPTIONS.budget_range, required:true},
       {name:"payment_option", label:"Payment Option", type:"select", options:OPTIONS.payment_option, required:true},
       {name:"bhk_preference", label:"BHK Preference", type:"select", options:OPTIONS.bhk_preference, required:true},
-      {name:"remarks", label:"Remarks / Requirements", type:"textarea", required:false, full:true},
+      {name:"remarks_requirements", label:"Remarks / Requirements", type:"textarea", required:false, full:true},
     ],
   },
 };

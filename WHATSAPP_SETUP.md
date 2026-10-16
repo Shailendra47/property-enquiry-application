@@ -2,6 +2,8 @@
 
 For the full project installation, webhook setup, test steps, and delivery checklist, see [STEP_BY_STEP_GUIDE.md](STEP_BY_STEP_GUIDE.md).
 
+The completed WhatsApp questionnaire shares the Calendly URL. Expose the app over HTTPS (ngrok locally, or your hosted URL in production) and subscribe Calendly `invitee.created` to `https://YOUR_PUBLIC_HOST/webhooks/calendly`. Set `CALENDLY_WEBHOOK_SIGNING_KEY` and `TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID` in `.env`. `python create_twilio_content.py` now also creates the appointment template (`Hi {{1}}, your {{2}} is confirmed for {{3}} to {{4}} ({{5}})...`). Inside the 24-hour customer window the app sends that prompt as free-form text; after the window it uses the approved template. `TWILIO_WHATSAPP_FROM` is the sender; the matched enquiry WhatsApp number is the recipient. Calendly retries are de-duplicated by invitee URI.
+
 ## Connected pages and CRM
 
 - `/` opens the Contact Us form.
@@ -21,7 +23,7 @@ The flow validates first name and email, supports skip for last name and remarks
 1. Install the supported dependencies: `python -m pip install -r requirements.txt`.
 2. Copy `.env.example` to `.env`. Fill in `MONGODB_URI`, Twilio account SID and Auth Token, WhatsApp sender number, and the public HTTPS `PUBLIC_BASE_URL`. Keep `.env` private.
 3. Run `python create_twilio_content.py` once to create Content API templates. Copy the printed Content SIDs into the matching `.env` entries.
-4. Submit `property_contact_start` for WhatsApp approval in Twilio Console. The form-triggered first message requires a registered WhatsApp sender, a customer opt-in, and an approved start template. List pickers and quick replies are used after the recipient responds, inside the 24-hour customer service window.
+4. Submit `property_contact_start` and `property_calendly_booking_confirmation` for WhatsApp approval in Twilio Console. The form-triggered first message requires a registered WhatsApp sender, a customer opt-in, and an approved start template. Booking confirmations use free-form text inside the 24-hour window and the approved booking template after it closes. List pickers and quick replies are used after the recipient responds.
 5. Configure the WhatsApp sender's incoming-message webhook in Twilio as `https://YOUR_PUBLIC_HOST/webhooks/whatsapp`, method `POST`. The host must exactly match `PUBLIC_BASE_URL` in `.env`.
 6. Run the app on a publicly reachable HTTPS host. When a customer submits Contact Us, the server stores the contact and attempts to send the start template. The page reports whether Twilio accepted that start message. A Twilio-accepted message may still be queued; check Twilio Messaging Logs for delivery status.
 

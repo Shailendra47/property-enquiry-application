@@ -295,15 +295,28 @@ body {
 
 /* ===== No scrollbar + centered layout (desktop) ===== */
 
-/* Keep everything inside the viewport and hide any scrollbar */
+/* Keep everything inside the viewport and allow clean scrolling with visible scrollbar */
 html, body {
-  height: 100%;
-  overflow: hidden;
-  scrollbar-width: none;       /* Firefox */
-  -ms-overflow-style: none;    /* old Edge */
+  min-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
-html::-webkit-scrollbar,
-body::-webkit-scrollbar { display: none; }  /* Chrome, Edge, Safari */
+
+/* Visible, modern scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+}
+::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #888;
+}
 
 /* Center the headline and the form */
 .page > .row {
@@ -318,21 +331,23 @@ body::-webkit-scrollbar { display: none; }  /* Chrome, Edge, Safari */
 .form-card {
   margin: 0 auto;
   text-align: left;   /* keep labels and inputs readable */
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.form-card::-webkit-scrollbar {
+  width: 6px;
+}
+.form-card::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
 }
 
-/* On phones/tablets the content can be taller than the screen,
-   so allow scrolling there while keeping the scrollbar hidden */
 @media (max-width: 991.98px) {
   html, body { height: auto; overflow-y: auto; }
 }
 /* ===== Reference layout: yellow blobs left, hero text, form card right ===== */
-html, body { height: 100%; }
+html, body { min-height: 100%; overflow-y: auto; }
 body { background: #fff; }
-
-@media (min-width: 992px) {
-  html, body { overflow: hidden; scrollbar-width: none; -ms-overflow-style: none; }
-  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
-}
 
 .blob { pointer-events: none; }
 .blob-1 { width: 480px; height: 480px; top: -150px; left: -120px; background: #fdeaa8; opacity: 1; }

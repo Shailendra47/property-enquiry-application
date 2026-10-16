@@ -92,10 +92,11 @@ python create_twilio_content.py
 The script prints `HX...` Content SIDs. Copy each printed line into the corresponding `.env` variable, including:
 
 - `TWILIO_WHATSAPP_START_TEMPLATE_SID`
+- `TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID`
 - planning, budget, payment category/subcategory, and BHK list-picker SIDs
 - `TWILIO_QUICK_REPLY_MOBILE_SID`
 
-Submit the `property_contact_start` template for WhatsApp approval in Twilio Console. It contains placeholders for the submitted name, email, and phone, followed by the first location question. The new template must be approved before it can start a business-initiated chat. The list-picker and quick-reply templates are used after the recipient replies. If Twilio reports `ContentSid is Invalid`, confirm the SID is an `HX...` SID from the same account and was copied without spaces. The Sandbox can send the details and question as free-form text only while the customer service window is open.
+Submit `property_contact_start` and `property_calendly_booking_confirmation` for WhatsApp approval in Twilio Console. The start template contains placeholders for the submitted name, email, and phone, followed by the first location question. The booking template contains the confirmed meeting name, start, end, timezone, location/join URL, and extra Calendly details. Both must be approved before they can start a business-initiated chat outside the 24-hour window. The list-picker and quick-reply templates are used after the recipient replies. If Twilio reports `ContentSid is Invalid`, confirm the SID is an `HX...` SID from the same account and was copied without spaces. The Sandbox can send free-form text only while the customer service window is open.
 
 ## 7. Run the app and expose a local HTTPS webhook
 
@@ -158,7 +159,34 @@ Open `http://127.0.0.1:8000/admin/login` and sign in using `ADMIN_USERNAME` and 
 
 The WhatsApp indicator checks local settings and HTTPS URL shape only; it cannot verify template approval, the Console webhook setting, or final delivery.
 
-## 11. Troubleshooting
+## 11. Calendly booking link and WhatsApp confirmation
+
+The completed WhatsApp questionnaire replies with `CALENDLY_URL`. Set it in `.env` if you want a different booking page. To send a booking confirmation to the customer's WhatsApp number, deploy the app at a public HTTPS URL and configure:
+
+```env
+CALENDLY_URL=https://calendly.com/shailendra-profilent/30min
+CALENDLY_WEBHOOK_SIGNING_KEY=<signing key for your Calendly webhook subscription>
+CALENDLY_TOKEN=<Calendly personal access token with scheduled_events:read scope>
+TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID=HX<approved booking-confirmation Content SID>
+```
+
+`python create_twilio_content.py` creates `property_calendly_booking_confirmation` with this prompt: `Hi {{1}}, your {{2}} is confirmed for {{3}} to {{4}} ({{5}}). Location or joining link: {{6}}. {{7}} Reply STOP to opt out.` Placeholders are customer name, event name, start date/time, end date/time, timezone, meeting location/joining URL, and extra Calendly details. Put its Content SID in `TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID` and submit it for WhatsApp approval.
+
+If the customer messaged within the last 24 hours, the app sends that same prompt as a free-form WhatsApp reply from `TWILIO_WHATSAPP_FROM`. After the window closes, Twilio requires the approved template. The app matches the Calendly invitee email, or an international phone from Calendly's text reminder / phone question, to the saved enquiry or WhatsApp conversation.
+
+In Calendly, create a webhook subscription for `invitee.created` with the destination `https://YOUR_PUBLIC_HOST/webhooks/calendly`; configure its signing key to match `CALENDLY_WEBHOOK_SIGNING_KEY`. Keep `PUBLIC_BASE_URL` set to the same public host used for the Twilio webhook. The schedule page also posts Calendly's event and invitee references to `/api/calendly/booking-confirmation`; the server retrieves the booking from Calendly using `CALENDLY_TOKEN` and can send the confirmation if webhook delivery is delayed or unavailable. Both paths share one invitee URI de-duplication record, so they do not send twice. The app matches a Contact Us or WhatsApp enquiry by email or international phone, stores the booking and notification status on the matched MongoDB lead, and sends from `TWILIO_WHATSAPP_FROM` to the matched customer's WhatsApp number.
+
+Only Contact Us leads that opted in or WhatsApp-originated enquiry leads receive a message; a saved `STOP` reply suppresses it. Twilio must have a registered WhatsApp sender and the approved confirmation template. Calendly should also have its own booking notifications enabled as a fallback.
+
+### Test the Calendly confirmation
+
+1. Copy `.env.example` to `.env`, fill in the private credentials, and run the app on the public HTTPS host configured in Calendly.
+2. Submit Contact Us with WhatsApp opt-in, using a test email and E.164 phone number, and complete the questionnaire. Alternatively, complete a WhatsApp-originated enquiry.
+3. Book a test Calendly meeting with that email. To check phone matching, provide the same international number in Calendly's text reminder number or a phone question.
+4. Confirm the customer receives the meeting date, time, and timezone. In MongoDB, inspect the matched contact/lead's `calendly_booking` data and `notification.status`; check Twilio Messaging Logs and `calendly_webhook_events` for the message SID and delivery state.
+5. Replay the same webhook delivery. The same Calendly invitee URI must not create a second confirmation. An unsigned request should return HTTP 403.
+
+## 12. Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
@@ -171,7 +199,7 @@ The WhatsApp indicator checks local settings and HTTPS URL shape only; it cannot
 | Contact form works but replies do not | Check the webhook URL and method. Localhost/127.0.0.1 cannot be reached by Twilio; use HTTPS ngrok for development or a public deployment. |
 | CRM login or data fails | Set `ADMIN_PASSWORD` and `SESSION_SECRET`; verify MongoDB URI, Atlas Network Access, and that the app starts without a MongoDB error. |
 
-## 12. Delivery checklist
+## 13. Delivery checklist
 
 - [ ] `.env` contains real settings and is excluded from the delivery ZIP.
 - [ ] MongoDB Atlas is reachable from the deployment host.
@@ -180,5 +208,6 @@ The WhatsApp indicator checks local settings and HTTPS URL shape only; it cannot
 - [ ] Sandbox join and inbound chatbot flow have been demonstrated.
 - [ ] For automatic custom form-triggered starts, the production sender is registered and the start template is approved.
 - [ ] Twilio inbound webhook points to the production HTTPS host at `/webhooks/whatsapp` with POST.
+- [ ] Calendly `invitee.created` webhook points to the production HTTPS host at `/webhooks/calendly`; its signing key and the approved Twilio booking template SID are configured.
 - [ ] Twilio Messaging Logs show an accepted/delivered message during the live test.
 - [ ] `.env`, Auth Token, and database password are not in screenshots, source control, or the delivered ZIP.

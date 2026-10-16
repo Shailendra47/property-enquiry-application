@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from whatsapp_bot import BOOKING_CONFIRMATION_TEMPLATE_BODY
+
 account_sid = os.getenv("TWILIO_ACCOUNT_SID")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 if not account_sid or not auth_token:
@@ -162,9 +164,29 @@ start_sid = create_content(
 )
 created["TWILIO_WHATSAPP_START_TEMPLATE_SID"] = start_sid
 
+booking_sid = create_content(
+    "property_calendly_booking_confirmation",
+    {"twilio/text": {"body": BOOKING_CONFIRMATION_TEMPLATE_BODY}},
+    variables={
+        "1": "Asha Sharma",
+        "2": "Property meeting",
+        "3": "Tue 14 Oct 2026, 03:00 PM IST",
+        "4": "Tue 14 Oct 2026, 03:30 PM IST",
+        "5": "Asia/Kolkata",
+        "6": "https://calendly.com/shailendra-profilent/30min",
+        "7": (
+            "Calendly booking details: Property meeting | Host: Shailendra | "
+            "Date/time: Fri 16 Oct 2026, 12:00 PM IST to Fri 16 Oct 2026, 12:30 PM IST | "
+            "Time zone: India Standard Time (IST) | Phone: +919068978137"
+        ),
+    },
+)
+created["TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID"] = booking_sid
+
 if args.start_only:
     print(f"TWILIO_WHATSAPP_START_TEMPLATE_SID={start_sid}")
-    print("Submit this template for WhatsApp approval before using it with a live sender.")
+    print(f"TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID={booking_sid}")
+    print("Submit both templates for WhatsApp approval before using them with a live sender.")
     raise SystemExit(0)
 
 for _, (env_name, friendly_name, question, rows) in MENUS.items():
@@ -199,5 +221,7 @@ created["TWILIO_QUICK_REPLY_MOBILE_SID"] = create_content(
 print("Created Twilio Content templates. Add these lines to .env:")
 for key, sid in created.items():
     print(f"{key}={sid}")
-print("\nSubmit property_contact_start for WhatsApp approval in Twilio Console.")
+print("\nSubmit property_contact_start and property_calendly_booking_confirmation")
+print("for WhatsApp approval in Twilio Console.")
 print("The list-picker and mobile quick-reply templates are used inside the 24-hour session.")
+print("The booking template is required after the 24-hour customer service window closes.")
