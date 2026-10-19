@@ -118,10 +118,11 @@ def sync_zoho_lead(lead: dict) -> None:
         if lead.get("contact_number"):
             record["Mobile"] = str(lead["contact_number"])
 
-        duplicate_fields = [key for key, value in (("Email", email), ("Phone", phone)) if value]
         payload = {"data": [record]}
-        if duplicate_fields:
-            payload["duplicate_check_fields"] = duplicate_fields
+        # Email is Zoho's supported unique lead key by default. Phone is not
+        # guaranteed to be configured as a unique field in every CRM layout.
+        if email:
+            payload["duplicate_check_fields"] = ["Email"]
 
         module_name = ZOHO_MODULE
         if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", module_name):

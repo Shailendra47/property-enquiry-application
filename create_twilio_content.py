@@ -1,8 +1,9 @@
 """Create the WhatsApp templates used by the property questionnaire.
 
 Run once after setting TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in .env.
-The script prints Content SIDs; paste them into .env. Submit the start text
-template for WhatsApp approval in Twilio Console before enabling form sends.
+The script prints Content SIDs; paste them into .env. Submit the booking
+confirmation template for WhatsApp approval before sending outside the 24-hour
+customer service window.
 """
 
 import argparse
@@ -26,6 +27,11 @@ parser.add_argument(
     "--start-only",
     action="store_true",
     help="Create only the form-triggered opening template, not the questionnaire menus.",
+)
+parser.add_argument(
+    "--booking-only",
+    action="store_true",
+    help="Create only the Calendly booking confirmation template.",
 )
 args = parser.parse_args()
 
@@ -144,6 +150,24 @@ MENUS = {
 }
 
 created = {}
+
+if args.booking_only:
+    booking_sid = create_content(
+        "property_calendly_booking_confirmation",
+        {"twilio/text": {"body": BOOKING_CONFIRMATION_TEMPLATE_BODY}},
+        variables={
+            "1": "Asha Sharma",
+            "2": "Property meeting",
+            "3": "Tue 14 Oct 2026, 03:00 PM IST",
+            "4": "Tue 14 Oct 2026, 03:30 PM IST",
+            "5": "Asia/Kolkata",
+            "6": "https://calendly.com/shailendra-profilent/30min",
+            "7": "Host: Property Team | Date/time: Tue 14 Oct 2026, 03:00 PM to 03:30 PM IST",
+        },
+    )
+    print(f"TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID={booking_sid}")
+    print("Submit property_calendly_booking_confirmation for WhatsApp approval in Twilio Console.")
+    raise SystemExit(0)
 
 start_sid = create_content(
     "property_contact_start",

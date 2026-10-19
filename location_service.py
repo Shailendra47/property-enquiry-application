@@ -11,6 +11,16 @@ import urllib.request
 logger = logging.getLogger("uvicorn.error")
 _nominatim_lock = threading.Lock()
 _nominatim_last_request = 0.0
+_PHOTON_LOCATION_LAYERS = ("locality", "district", "city", "county", "state")
+_PHOTON_PLACE_VALUES = {
+    "city", "town", "village", "hamlet", "suburb", "neighbourhood",
+    "quarter", "municipality", "county", "district", "region", "state",
+    "province", "administrative",
+}
+_NOMINATIM_PLACE_TYPES = {
+    "city", "town", "village", "hamlet", "suburb", "neighbourhood",
+    "quarter", "municipality", "county", "state", "province", "administrative",
+}
 
 def photon_locations(query: str) -> list[str]:
     normalized = " ".join(query.casefold().split())
@@ -19,23 +29,32 @@ def photon_locations(query: str) -> list[str]:
 
 @lru_cache(maxsize=1024)
 def _photon_locations_cached(query: str) -> tuple[str, ...]:
-    params = urlencode({
-        "q": query,
-        "limit": 10,
-        "lang": "en",
-        "bbox": "68.1,6.7,97.4,35.7",
-    })
+    params = urlencode([
+        ("q", query),
+        ("limit", "10"),
+        ("lang", "en"),
+        ("bbox", "68.1,6.7,97.4,35.7"),
+        *(("layer", layer) for layer in _PHOTON_LOCATION_LAYERS),
+    ])
     request = urllib.request.Request(
         f"https://photon.komoot.io/api/?{params}",
         headers={"User-Agent": "ProfilentPropertyEnquiry/1.0"},
     )
-    with urllib.request.urlopen(request, timeout=4) as response:
+    with urllib.request.urlopen(request, timeout=2) as response:
         data = json.loads(response.read().decode("utf-8"))
 
     labels, seen = [], set()
     for feature in data.get("features", []):
         place = feature.get("properties", {})
         if place.get("countrycode", "").upper() != "IN":
+            continue
+        layer = str(place.get("type", "")).casefold()
+        osm_place_value = (
+            str(place.get("osm_value", "")).casefold()
+            if str(place.get("osm_key", "")).casefold() == "place"
+            else ""
+        )
+        if layer not in _PHOTON_LOCATION_LAYERS and osm_place_value not in _PHOTON_PLACE_VALUES:
             continue
         parts = []
         for key in ("name", "locality", "district", "city", "county", "state"):
@@ -80,6 +99,12 @@ def _nominatim_locations_cached(query: str) -> tuple[str, ...]:
     for result in results:
         address = result.get("address") or {}
         if address.get("country_code", "").casefold() != "in":
+            continue
+        result_class = str(result.get("class", "")).casefold()
+        result_type = str(result.get("type", "")).casefold()
+        is_place = result_class == "place" and result_type in _NOMINATIM_PLACE_TYPES
+        is_administrative_boundary = result_class == "boundary" and result_type == "administrative"
+        if not (is_place or is_administrative_boundary):
             continue
         parts = []
         for value in (result.get("name"), *(address.get(key) for key in keys)):

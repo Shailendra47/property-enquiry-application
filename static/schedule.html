@@ -79,7 +79,7 @@
     <div class="schedule-header">
       <p class="kicker text-uppercase fw-bold text-muted small mb-1">Meet Our Property Team</p>
       <h1 class="h2 fw-bold mb-2">Schedule Your Consultation</h1>
-      <p class="text-muted mb-0">Select your preferred date and time. You will be automatically redirected to WhatsApp with your meeting confirmation.</p>
+      <p class="text-muted mb-0">Select your preferred date and time. After booking, we’ll send the meeting details to the WhatsApp number linked to your enquiry when available.</p>
     </div>
 
     <div class="schedule-card">
@@ -90,12 +90,12 @@
     </div>
   </main>
 
-  <!-- Redirecting Overlay (shown when event is scheduled) -->
+  <!-- Booking confirmation status -->
   <div id="redirectOverlay" class="redirect-overlay" style="display: none;">
     <div class="spinner-wa"></div>
     <h3 class="fw-bold mb-2">Meeting Scheduled!</h3>
-    <p class="text-muted mb-3" id="redirectStatus">Redirecting you to WhatsApp with your scheduled date & time...</p>
-    <a id="manualRedirectLink" href="#" class="wa-btn">Open WhatsApp Now</a>
+    <p class="text-muted mb-3" id="redirectStatus">Checking WhatsApp confirmation status...</p>
+    <a href="/" class="wa-btn">Return to Profilent</a>
   </div>
 
   <script>
@@ -117,15 +117,6 @@
         const eventUri = payload.event && payload.event.uri ? encodeURIComponent(payload.event.uri) : "";
         const inviteeUri = payload.invitee && payload.invitee.uri ? encodeURIComponent(payload.invitee.uri) : "";
 
-        let redirectUrl = "/booking/redirect";
-        const params = [];
-        if (eventUri) params.push("event_uri=" + eventUri);
-        if (inviteeUri) params.push("invitee_uri=" + inviteeUri);
-        if (params.length > 0) redirectUrl += "?" + params.join("&");
-
-        const manualLink = document.getElementById("manualRedirectLink");
-        manualLink.href = redirectUrl;
-
         try {
           if (!eventUri || !inviteeUri) throw new Error("Calendly did not provide booking references.");
           const response = await fetch("/api/calendly/booking-confirmation", {
@@ -138,21 +129,27 @@
 
           const status = document.getElementById("redirectStatus");
           if (result.duplicate) {
-            status.textContent = "Your booking confirmation is already being processed. Opening WhatsApp...";
+            status.textContent = "Your booking is confirmed. A WhatsApp confirmation for this booking is already being processed.";
           } else if (result.notification_status === "queued") {
-            status.textContent = "Your booking is confirmed. Sending the meeting details to your WhatsApp number...";
-          } else if (result.ignored) {
-            status.textContent = "Your booking is confirmed. WhatsApp confirmation was not started for this booking.";
+            status.textContent = "Your booking is confirmed. A WhatsApp confirmation is queued for the number linked to your enquiry.";
+          } else if (result.notification_status === "not_opted_in") {
+            status.textContent = "Your booking is confirmed. WhatsApp confirmation needs your opt-in; Calendly will email the invitation.";
+          } else if (result.notification_status === "unmatched") {
+            status.textContent = "Your booking is confirmed, but we couldn't match it to an enquiry by email or phone. Calendly will email the invitation.";
+          } else if (result.notification_status === "missing_phone") {
+            status.textContent = "Your booking is confirmed, but no WhatsApp number was found on your enquiry. Calendly will email the invitation.";
+          } else if (result.notification_status === "template_not_configured") {
+            status.textContent = "Your booking is confirmed, but WhatsApp confirmation isn't configured yet. Calendly will email the invitation.";
+          } else if (result.notification_status === "opted_out") {
+            status.textContent = "Your booking is confirmed. WhatsApp messages are turned off for this number; Calendly will email the invitation.";
           } else {
-            status.textContent = "Your booking is confirmed, but WhatsApp could not be queued. Opening WhatsApp with the meeting details...";
+            status.textContent = "Your booking is confirmed. Calendly will email the invitation.";
           }
         } catch (err) {
           console.error("Calendly WhatsApp fallback failed:", err);
           document.getElementById("redirectStatus").textContent =
-            "Your booking is confirmed. We couldn't send the automatic WhatsApp confirmation; opening WhatsApp with the meeting details...";
+            "Your booking is confirmed, but we couldn't check WhatsApp delivery. Calendly will email the invitation.";
         }
-
-        setTimeout(function() { window.location.href = redirectUrl; }, 1500);
       }
     });
   </script>

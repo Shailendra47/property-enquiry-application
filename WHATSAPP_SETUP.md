@@ -2,7 +2,7 @@
 
 For the full project installation, webhook setup, test steps, and delivery checklist, see [STEP_BY_STEP_GUIDE.md](STEP_BY_STEP_GUIDE.md).
 
-The completed WhatsApp questionnaire shares the Calendly URL. Expose the app over HTTPS (ngrok locally, or your hosted URL in production) and subscribe Calendly `invitee.created` to `https://YOUR_PUBLIC_HOST/webhooks/calendly`. Set `CALENDLY_WEBHOOK_SIGNING_KEY` and `TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID` in `.env`. `python create_twilio_content.py` now also creates the appointment template (`Hi {{1}}, your {{2}} is confirmed for {{3}} to {{4}} ({{5}})...`). Inside the 24-hour customer window the app sends that prompt as free-form text; after the window it uses the approved template. `TWILIO_WHATSAPP_FROM` is the sender; the matched enquiry WhatsApp number is the recipient. Calendly retries are de-duplicated by invitee URI.
+The completed WhatsApp questionnaire shares the Calendly URL. Expose the app over HTTPS (ngrok locally, or your hosted URL in production) and subscribe Calendly `invitee.created` to `https://YOUR_PUBLIC_HOST/webhooks/calendly`. Set `CALENDLY_WEBHOOK_SIGNING_KEY` and `TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID` in `.env`. Run `python create_twilio_content.py --booking-only` to create just the appointment template, submit it for WhatsApp approval in Twilio Console, then paste its printed Content SID into `.env` and restart the app. The app sends free-form text inside the 24-hour customer window and uses the approved booking template outside it (or as a fallback if free-form sending is rejected). `TWILIO_WHATSAPP_FROM` is the sender; the matched, opted-in enquiry number is the recipient. Calendly retries are de-duplicated by invitee URI.
 
 ## Connected pages and CRM
 

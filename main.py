@@ -71,6 +71,23 @@ WHATSAPP_BUSINESS_NUMBER = os.getenv("WHATSAPP_BUSINESS_NUMBER", "")
 TWILIO_WHATSAPP_SANDBOX = re.sub(r"\D", "", TWILIO_WHATSAPP_FROM) == "14155238886"
 IST = timezone(timedelta(hours=5, minutes=30))
 
+
+def schedule_page_url() -> str:
+    """Return the public booking page, with Calendly as a fallback."""
+    if PUBLIC_BASE_URL:
+        return f"{PUBLIC_BASE_URL}/schedule"
+    return CALENDLY_URL
+
+
+def send_questionnaire_text(phone: str, message: str) -> None:
+    """Send a questionnaire reply through Twilio's API and log acceptance."""
+    message_sid = send_text(phone, message)
+    logger.info(
+        "WhatsApp questionnaire outbound (phone suffix=%s, accepted=%s)",
+        re.sub(r"\D", "", phone)[-4:],
+        bool(message_sid),
+    )
+
 logger = logging.getLogger("uvicorn.error")
 
 SESSION_SECRET = os.getenv("SESSION_SECRET")
@@ -135,6 +152,16 @@ app.add_middleware(
     max_age=60 * 60 * 8,
     same_site="lax",
 )
+@app.middleware("http")
+async def debug_requests(request: Request, call_next):
+    print("REQUEST RECEIVED:", request.method, request.url)
+    
+    response = await call_next(request)
+    
+    print("RESPONSE STATUS:", response.status_code)
+    return response
+
+
 class ContactForm(BaseModel):
     full_name: str = Field(min_length=2, max_length=100)
     email: EmailStr
@@ -174,11 +201,12 @@ def send_confirmation_email(name: str, to_email: str, property_address: str) -> 
         "convenience.</p>",
     ]
 
-    if CALENDLY_URL:
-        text_parts.append(f"Book a meeting at a time that suits you:\n{CALENDLY_URL}")
+    booking_url = schedule_page_url()
+    if booking_url:
+        text_parts.append(f"Book a meeting at a time that suits you:\n{booking_url}")
         html_parts.append(
             "<p>Book a meeting at a time that suits you:</p>"
-            f'<p><a href="{html.escape(CALENDLY_URL, quote=True)}" '
+            f'<p><a href="{html.escape(booking_url, quote=True)}" '
             'style="display:inline-block;background:#333333;color:#ffffff;padding:12px 24px;'
             'border-radius:6px;text-decoration:none;font-weight:600;">Schedule a Meeting</a></p>'
         )
@@ -240,6 +268,20 @@ async def create_contact(form: ContactForm, background_tasks: BackgroundTasks):
             detail="Could not save your details. Please try again.",
         )
 
+    whatsapp_result = {"started": False, "status": "not_requested", "missing": []}
+    if form.whatsapp_opt_in:
+        # Return the form confirmation without waiting on Twilio's network call.
+        # Run this first so it is not queued behind CRM or email work.
+        background_tasks.add_task(
+            start_questionnaire,
+            app.state.whatsapp_conversations,
+            whatsapp_phone,
+            str(result.inserted_id),
+            full_name=form.full_name,
+            email=str(form.email),
+        )
+        whatsapp_result = {"started": True, "status": "queued", "missing": []}
+
     background_tasks.add_task(
         sync_zoho_lead,
         {
@@ -254,17 +296,6 @@ async def create_contact(form: ContactForm, background_tasks: BackgroundTasks):
         str(form.email),
         "our properties",
     )
-
-    whatsapp_result = {"started": False, "status": "not_requested", "missing": []}
-    if form.whatsapp_opt_in:
-        whatsapp_result = await start_questionnaire(
-            app.state.whatsapp_conversations,
-            phone=whatsapp_phone,
-            contact_id=str(result.inserted_id),
-            background_tasks=background_tasks,
-            full_name=form.full_name,
-            email=str(form.email),
-        )
 
     return {
         "message": "Your enquiry was saved.",
@@ -322,6 +353,7 @@ CHOICES = {
         "Penthouse",
     ],
 }
+
 
 class EnquiryForm(BaseModel):
     first_name: str = Field(min_length=2, max_length=50)
@@ -576,16 +608,18 @@ async def enquiry_page():
 
 
 @app.get("/whatsapp", include_in_schema=False)
-async def start_whatsapp_chat():
+async def start_whatsapp_chat(prefill: bool = True):
     # The visitor starts the chat, which also supports Twilio Sandbox testing.
     target = WHATSAPP_BUSINESS_NUMBER or (TWILIO_WHATSAPP_FROM if TWILIO_WHATSAPP_SANDBOX else "")
     number = re.sub(r"\D", "", target)
     if not number:
         raise HTTPException(status_code=503, detail="WhatsApp chat is not configured")
-    return RedirectResponse(
-        f"https://wa.me/{number}?text=Hi",
-        status_code=307,
-    )
+    # Form submissions already start the opted-in questionnaire via Twilio.
+    # Open their chat without a prefilled Hi so it cannot reset that workflow.
+    target_url = f"https://wa.me/{number}"
+    if prefill:
+        target_url += "?text=Hi"
+    return RedirectResponse(target_url, status_code=307)
 
 
 @app.get("/schedule", include_in_schema=False)
@@ -697,6 +731,12 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
     conversations = request.app.state.whatsapp_conversations
     now = datetime.now(timezone.utc)
     conversation = await conversations.find_one({"phone": phone})
+    logger.info(
+        "WhatsApp inbound received (phone suffix=%s, body length=%s, conversation found=%s)",
+        re.sub(r"\D", "", phone)[-4:],
+        len(text),
+        bool(conversation),
+    )
     if not conversation:
         # This also lets the existing wa.me link start a customer-initiated chat.
         await conversations.insert_one({
@@ -708,6 +748,11 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             "updated_at": now,
             "last_inbound_at": now,
         })
+        if not TWILIO_WHATSAPP_SANDBOX:
+            # Use the REST API for production senders so Twilio's outbound SID
+            # and any delivery rejection are visible in the application logs.
+            background_tasks.add_task(send_questionnaire_text, phone, TEXT_PROMPTS["q1_first_name"])
+            return twiml()
         return twiml(TEXT_PROMPTS["q1_first_name"])
     await conversations.update_one({"phone": phone}, {"$set": {"last_inbound_at": now}})
 
@@ -717,7 +762,7 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             {"$set": {"status": "stopped", "updated_at": datetime.now(timezone.utc)}},
         )
         return twiml("You have been opted out of this WhatsApp conversation.")
-    if text.upper() in {"START", "RESTART", "RESET"}:
+    if text.upper() in {"HI", "HELLO", "START", "RESTART", "RESET"}:
         await conversations.update_one(
             {"phone": phone},
             {"$set": {
@@ -727,10 +772,13 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
                 "updated_at": datetime.now(timezone.utc),
             }},
         )
+        if not TWILIO_WHATSAPP_SANDBOX:
+            background_tasks.add_task(send_questionnaire_text, phone, TEXT_PROMPTS["q1_first_name"])
+            return twiml()
         return twiml(TEXT_PROMPTS["q1_first_name"])
 
     if conversation.get("status") == "complete":
-        calendly_link = os.getenv("CALENDLY_URL", CALENDLY_URL)
+        calendly_link = schedule_page_url()
         return twiml(
             "Your answers have already been recorded. Our team will contact you shortly."
             f"\n\nChoose a convenient date and time to meet here: {calendly_link}"
@@ -752,14 +800,30 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
 
     stage = conversation.get("stage", "q1_first_name")
     answers = conversation.get("answers", {})
+    logger.info("WhatsApp questionnaire reply (stage=%s, status=%s)", stage, conversation.get("status"))
 
     if stage == "q5_location_checking":
-        return twiml("I'm still checking that location. I'll send the next question as soon as it's verified.")
+        # Recover conversations left in the old background-check state after a
+        # worker restart; the current validation runs in this webhook request.
+        recovered = await conversations.update_one(
+            {"_id": conversation["_id"], "stage": "q5_location_checking"},
+            {"$set": {"stage": "q5_location", "updated_at": now}, "$unset": {"pending_location": ""}},
+        )
+        if not recovered.modified_count:
+            return twiml("Please send your city or area again in a moment.")
+        stage = "q5_location"
 
     list_stage = find_list_stage(stage)
     if list_stage:
         selected = list_choice(list_stage, form)
         if selected is None:
+            logger.warning(
+                "WhatsApp list reply did not match an option (stage=%s, body length=%s, payload present=%s, button text present=%s)",
+                list_stage,
+                len(text),
+                bool(str(form.get("ButtonPayload", "")).strip()),
+                bool(str(form.get("ButtonText", "")).strip()),
+            )
             return twiml(menu_fallback(list_stage))
         _, stored_value = selected
         if stage == "q8_category":
@@ -785,11 +849,37 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
         else:
             answers["payment_option"] = stored_value
             next_stage = "q9_bhk"
-        await conversations.update_one(
-            {"phone": phone},
+        transition = await conversations.update_one(
+            {"_id": conversation["_id"], "stage": stage},
             {"$set": {"answers": answers, "stage": next_stage, "updated_at": datetime.now(timezone.utc)}},
         )
-        return twiml(dispatch_stage(next_stage, phone, answers, background_tasks))
+        if not transition.matched_count:
+            latest = await conversations.find_one({"_id": conversation["_id"]})
+            logger.warning(
+                "WhatsApp questionnaire stage changed before reply was saved (expected=%s, actual=%s)",
+                stage,
+                (latest or {}).get("stage"),
+            )
+            if latest:
+                return twiml(dispatch_stage(latest.get("stage", "q1_first_name"), phone, latest.get("answers", {}), background_tasks))
+            return twiml("Sorry, I couldn't save that answer. Please send it again.")
+
+        reply = dispatch_stage(next_stage, phone, answers, background_tasks)
+        if next_stage == "q10_remarks" and not reply:
+            reply = TEXT_PROMPTS["q10_remarks"]
+        if next_stage == "q10_remarks":
+            # The preceding BHK menu is sent through Twilio's REST API. Keep
+            # this transition on the same delivery path instead of relying on
+            # the webhook's TwiML response to deliver the free-text prompt.
+            background_tasks.add_task(send_questionnaire_text, phone, reply)
+            reply = ""
+        logger.info(
+            "WhatsApp questionnaire advanced (from=%s, to=%s, reply length=%s)",
+            stage,
+            next_stage,
+            len(reply),
+        )
+        return twiml(reply)
 
     if stage == "q1_first_name":
         candidate = text.strip()
@@ -841,14 +931,42 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
         )
         if not claim.modified_count:
             return twiml("I'm already checking your location. I'll send the next question shortly.")
-        background_tasks.add_task(
-            verify_whatsapp_location_and_continue,
-            conversations,
-            phone,
-            conversation["_id"],
-            text[:150],
+        location_query = text[:150]
+        try:
+            locations = await run_in_threadpool(photon_locations, location_query)
+        except Exception:
+            logger.exception("WhatsApp location validation failed for conversation %s", conversation["_id"])
+            await conversations.update_one(
+                {"_id": conversation["_id"], "stage": "q5_location_checking", "pending_location": location_query},
+                {"$set": {"stage": "q5_location", "updated_at": datetime.now(timezone.utc)}, "$unset": {"pending_location": ""}},
+            )
+            return twiml("I couldn't check that location right now. Please try again.\n\n" + TEXT_PROMPTS["q5_location"])
+
+        if not is_verified_place(location_query, locations):
+            await conversations.update_one(
+                {"_id": conversation["_id"], "stage": "q5_location_checking", "pending_location": location_query},
+                {"$set": {"stage": "q5_location", "updated_at": datetime.now(timezone.utc)}, "$unset": {"pending_location": ""}},
+            )
+            return twiml("I couldn't verify that city or area. Please check the spelling and try again.\n\n" + TEXT_PROMPTS["q5_location"])
+
+        normalized_query = " ".join(location_query.casefold().split())
+        canonical_location = next(
+            label for label in locations
+            if any(" ".join(part.casefold().split()) == normalized_query for part in label.split(","))
         )
-        return twiml("Thanks. I'm checking that location now and will send the next question shortly.")
+        answers["location_preference"] = canonical_location
+        updated = await conversations.update_one(
+            {"_id": conversation["_id"], "stage": "q5_location_checking", "pending_location": location_query},
+            {"$set": {
+                "answers": answers,
+                "stage": "q6_planning",
+                "status": "in_progress",
+                "updated_at": datetime.now(timezone.utc),
+            }, "$unset": {"pending_location": ""}},
+        )
+        if not updated.modified_count:
+            return twiml("I couldn't save that location. Please send it again.\n\n" + TEXT_PROMPTS["q5_location"])
+        return twiml(menu_fallback("q6_planning"))
     elif stage == "q10_remarks":
         answers["remarks_requirements"] = "" if text.casefold() == "skip" else text[:1000]
         conversation_id = str(conversation["_id"])
@@ -879,6 +997,14 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             logger.exception("Could not save WhatsApp questionnaire to property_leads")
             return twiml("Sorry, I couldn't save your answers just now. Please send your remarks again.")
 
+        first_name = answers.get("first_name", "there")
+        calendly_link = schedule_page_url()
+        completion_message = (
+            f"\u2705 Thank you, {first_name}! Our team will contact you shortly with matching options."
+            f"\n\nChoose a convenient date and time to meet here: {calendly_link}"
+        )
+        # Send the customer reply before the slower Zoho background sync.
+        background_tasks.add_task(send_questionnaire_text, phone, completion_message)
         background_tasks.add_task(
             sync_zoho_lead,
             {
@@ -909,12 +1035,7 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
                 "updated_at": datetime.now(timezone.utc),
             }},
         )
-        first_name = answers.get("first_name", "there")
-        calendly_link = os.getenv("CALENDLY_URL", CALENDLY_URL)
-        return twiml(
-            f"✅ Thank you, {first_name}! Our team will contact you shortly with matching options."
-            f"\n\nChoose a convenient date and time to meet here: {calendly_link}"
-        )
+        return twiml()
     else:
         return twiml("Sorry, I couldn't match that answer. Please reply START to restart.")
 
@@ -923,66 +1044,6 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
         {"$set": {"answers": answers, "stage": next_stage, "status": "in_progress", "updated_at": datetime.now(timezone.utc)}},
     )
     return twiml(dispatch_stage(next_stage, phone, answers, background_tasks))
-
-
-async def verify_whatsapp_location_and_continue(conversations, phone: str, conversation_id, query: str):
-    """Validate a WhatsApp location after the webhook has already acknowledged the message."""
-    try:
-        locations = await run_in_threadpool(verified_locations, query)
-    except Exception:
-        logger.exception("WhatsApp location validation failed for conversation %s", conversation_id)
-        reply = "I couldn't verify that location right now. Please try another spelling.\n\n" + TEXT_PROMPTS["q5_location"]
-        result = await conversations.update_one(
-            {"_id": conversation_id, "stage": "q5_location_checking", "pending_location": query},
-            {"$set": {"stage": "q5_location", "updated_at": datetime.now(timezone.utc)}, "$unset": {"pending_location": ""}},
-        )
-        if result.modified_count:
-            await run_in_threadpool(send_text, phone, reply)
-        return
-
-    if not is_verified_place(query, locations):
-        reply = "I couldn't verify that city or area. Please check the spelling and try again.\n\n" + TEXT_PROMPTS["q5_location"]
-        result = await conversations.update_one(
-            {"_id": conversation_id, "stage": "q5_location_checking", "pending_location": query},
-            {"$set": {"stage": "q5_location", "updated_at": datetime.now(timezone.utc)}, "$unset": {"pending_location": ""}},
-        )
-        if result.modified_count:
-            await run_in_threadpool(send_text, phone, reply)
-        return
-
-    normalized_query = " ".join(query.casefold().split())
-    canonical_location = next(
-        label for label in locations
-        if any(" ".join(part.casefold().split()) == normalized_query for part in label.split(","))
-    )
-    current = await conversations.find_one({"_id": conversation_id, "stage": "q5_location_checking", "pending_location": query})
-    if not current:
-        return
-    answers = current.get("answers", {})
-    answers["location_preference"] = canonical_location
-    result = await conversations.update_one(
-        {"_id": conversation_id, "stage": "q5_location_checking", "pending_location": query},
-        {"$set": {
-            "answers": answers,
-            "stage": "q6_planning",
-            "updated_at": datetime.now(timezone.utc),
-        }, "$unset": {"pending_location": ""}},
-    )
-    if not result.modified_count:
-        return
-
-    planning_menu_sid = LISTS["q6_planning"]["sid"]
-    message_sid = None
-    if planning_menu_sid:
-        try:
-            message_sid = await run_in_threadpool(send_content, phone, planning_menu_sid)
-        except Exception:
-            logger.exception("Could not send WhatsApp planning list to %s; using text fallback", phone)
-    if not message_sid:
-        try:
-            await run_in_threadpool(send_text, phone, menu_fallback("q6_planning"))
-        except Exception:
-            logger.exception("Could not send WhatsApp planning fallback to %s", phone)
 
 
 @app.post("/webhooks/calendly", include_in_schema=False)

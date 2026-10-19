@@ -15,7 +15,7 @@ function hidePopup() {
   popup.hidden = true;
   if (redirectToWhatsAppAfterSuccess) {
     redirectToWhatsAppAfterSuccess = false;
-    window.location.assign("/whatsapp");
+    window.location.assign("/whatsapp?prefill=false");
   }
 }
 document.getElementById("popupOk").addEventListener("click", hidePopup);
@@ -99,11 +99,11 @@ form.addEventListener("submit", async (e) => {
         data.whatsapp_started || data.whatsapp_status === "sandbox_session_required"
       );
       if (whatsappOptIn && data.whatsapp_started) {
-        successMessage.textContent = "Your enquiry details and first property question were sent. Select OK to open WhatsApp.";
+        successMessage.textContent = "Your enquiry was saved. The WhatsApp questionnaire is starting. Select OK to open WhatsApp and view the chat; the first question will arrive there.";
       } else {
         if (whatsappOptIn) {
           successMessage.textContent = data.whatsapp_status === "sandbox_session_required"
-            ? "Your enquiry was saved. Select OK to open the Twilio Sandbox chat, then send the prefilled Hi to start the questionnaire."
+            ? "Your enquiry was saved. Select OK to open the Twilio Sandbox chat, then tap Send on the prefilled Hi message. The Sandbox recipient must have joined the Twilio Sandbox first."
             : "Your enquiry was sent, but we couldn't start the WhatsApp message. Our team will contact you soon.";
         } else {
           successMessage.textContent = "Your details have been sent. Our team will contact you shortly.";
