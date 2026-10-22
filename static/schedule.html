@@ -109,7 +109,6 @@
 
       if (e.data.event === "calendly.event_scheduled" && !bookingConfirmationStarted) {
         bookingConfirmationStarted = true;
-        console.log("Calendly event scheduled:", e.data.payload);
         const overlay = document.getElementById("redirectOverlay");
         overlay.style.display = "flex";
 
@@ -129,9 +128,9 @@
 
           const status = document.getElementById("redirectStatus");
           if (result.duplicate) {
-            status.textContent = "Your booking is confirmed. A WhatsApp confirmation for this booking is already being processed.";
+            status.textContent = "Your booking is confirmed. The WhatsApp meeting confirmation is already being processed.";
           } else if (result.notification_status === "queued") {
-            status.textContent = "Your booking is confirmed. A WhatsApp confirmation is queued for the number linked to your enquiry.";
+            status.textContent = "Your booking is confirmed. The meeting details template is being sent to the WhatsApp number linked to your enquiry.";
           } else if (result.notification_status === "not_opted_in") {
             status.textContent = "Your booking is confirmed. WhatsApp confirmation needs your opt-in; Calendly will email the invitation.";
           } else if (result.notification_status === "unmatched") {
@@ -148,7 +147,7 @@
         } catch (err) {
           console.error("Calendly WhatsApp fallback failed:", err);
           document.getElementById("redirectStatus").textContent =
-            "Your booking is confirmed, but we couldn't check WhatsApp delivery. Calendly will email the invitation.";
+            "Your booking is confirmed. We couldn't confirm the WhatsApp notification; Calendly will email your invitation.";
         }
       }
     });

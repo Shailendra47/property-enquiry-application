@@ -354,7 +354,10 @@ function donut(data) {
   });
 }
 
+let loadingDashboard = false;
 async function load() {
+  if (loadingDashboard) return;
+  loadingDashboard = true;
   try {
     const [s, c, e] = await Promise.all([api("/api/admin/summary"), api("/api/admin/contacts"), api("/api/admin/enquiries")]);
     $("#err").hidden = true;
@@ -379,6 +382,8 @@ async function load() {
     allLeadsTable(c, e);
   } catch (err) {
     if (err.message !== "unauthenticated") $("#err").hidden = false;
+  } finally {
+    loadingDashboard = false;
   }
 }
 document.querySelectorAll(".search").forEach(inp => inp.addEventListener("input", () => {
@@ -487,7 +492,8 @@ modalForm.addEventListener("submit", async (e) => {
   }
 });
 
-load(); setInterval(load, 60000);
+load();
+setInterval(() => { if (!document.hidden) load(); }, 60000);
 </script>
 </body>
 </html>

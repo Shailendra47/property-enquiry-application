@@ -153,28 +153,29 @@ created = {}
 
 if args.booking_only:
     booking_sid = create_content(
-        "property_calendly_booking_confirmation",
+        "property_calendly_booking_confirmation_v2",
         {"twilio/text": {"body": BOOKING_CONFIRMATION_TEMPLATE_BODY}},
         variables={
             "1": "Asha Sharma",
-            "2": "Property meeting",
-            "3": "Tue 14 Oct 2026, 03:00 PM IST",
-            "4": "Tue 14 Oct 2026, 03:30 PM IST",
-            "5": "Asia/Kolkata",
-            "6": "https://calendly.com/shailendra-profilent/30min",
-            "7": "Host: Property Team | Date/time: Tue 14 Oct 2026, 03:00 PM to 03:30 PM IST",
+            "2": "asha@example.com",
+            "3": "Property meeting",
+            "4": "Tue 21 Oct 2026, 03:00 PM IST",
+            "5": "Tue 21 Oct 2026, 03:30 PM IST",
+            "6": "Asia/Kolkata",
+            "7": "https://calendly.com/shailendra-profilent/30min",
+            "8": "Host: Property Team | Property consultation",
         },
     )
     print(f"TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID={booking_sid}")
-    print("Submit property_calendly_booking_confirmation for WhatsApp approval in Twilio Console.")
+    print("Submit property_calendly_booking_confirmation_v2 for WhatsApp approval in Twilio Console.")
     raise SystemExit(0)
 
 start_sid = create_content(
-    "property_contact_start",
+    "property_contact_start_v2",
     {
         "twilio/text": {
             "body": (
-                "Thanks for your property enquiry, {{1}}. We have your details: "
+                "Hi {{1}}, thanks for your property enquiry. We have your details: "
                 "email {{2}} and phone {{3}}. What city or area are you looking to buy in? "
                 "Reply STOP to opt out."
             )
@@ -188,30 +189,30 @@ start_sid = create_content(
 )
 created["TWILIO_WHATSAPP_START_TEMPLATE_SID"] = start_sid
 
+if args.start_only:
+    print(f"TWILIO_WHATSAPP_START_TEMPLATE_SID={start_sid}")
+    print("Submit property_contact_start_v2 for WhatsApp approval before using it with a registered sender.")
+    raise SystemExit(0)
+
 booking_sid = create_content(
-    "property_calendly_booking_confirmation",
+    "property_calendly_booking_confirmation_v2",
     {"twilio/text": {"body": BOOKING_CONFIRMATION_TEMPLATE_BODY}},
     variables={
         "1": "Asha Sharma",
-        "2": "Property meeting",
-        "3": "Tue 14 Oct 2026, 03:00 PM IST",
-        "4": "Tue 14 Oct 2026, 03:30 PM IST",
-        "5": "Asia/Kolkata",
-        "6": "https://calendly.com/shailendra-profilent/30min",
-        "7": (
+        "2": "asha@example.com",
+        "3": "Property meeting",
+        "4": "Tue 21 Oct 2026, 03:00 PM IST",
+        "5": "Tue 21 Oct 2026, 03:30 PM IST",
+        "6": "Asia/Kolkata",
+        "7": "https://calendly.com/shailendra-profilent/30min",
+        "8": (
             "Calendly booking details: Property meeting | Host: Shailendra | "
-            "Date/time: Fri 16 Oct 2026, 12:00 PM IST to Fri 16 Oct 2026, 12:30 PM IST | "
-            "Time zone: India Standard Time (IST) | Phone: +919068978137"
+            "Date/time: Tue 21 Oct 2026, 03:00 PM IST to Tue 21 Oct 2026, 03:30 PM IST | "
+            "Time zone: India Standard Time (IST)"
         ),
     },
 )
 created["TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID"] = booking_sid
-
-if args.start_only:
-    print(f"TWILIO_WHATSAPP_START_TEMPLATE_SID={start_sid}")
-    print(f"TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID={booking_sid}")
-    print("Submit both templates for WhatsApp approval before using them with a live sender.")
-    raise SystemExit(0)
 
 for _, (env_name, friendly_name, question, rows) in MENUS.items():
     created[env_name] = create_content(
@@ -245,7 +246,7 @@ created["TWILIO_QUICK_REPLY_MOBILE_SID"] = create_content(
 print("Created Twilio Content templates. Add these lines to .env:")
 for key, sid in created.items():
     print(f"{key}={sid}")
-print("\nSubmit property_contact_start and property_calendly_booking_confirmation")
+print("\nSubmit property_contact_start and property_calendly_booking_confirmation_v2")
 print("for WhatsApp approval in Twilio Console.")
 print("The list-picker and mobile quick-reply templates are used inside the 24-hour session.")
 print("The booking template is required after the 24-hour customer service window closes.")
