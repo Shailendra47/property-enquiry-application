@@ -559,12 +559,14 @@ async def search_locations(q: str = Query(min_length=3, max_length=100)):
 
 @app.post("/api/enquiry", status_code=201)
 async def create_enquiry(form: EnquiryForm, background_tasks: BackgroundTasks):
+    matches = []
     try:
         matches = await run_in_threadpool(verified_locations, form.location_preference)
     except Exception:
-        logger.exception("Location verification provider failed")
-        raise HTTPException(status_code=503, detail="We could not verify this location right now. Please try again shortly.")
-    if not is_verified_place(form.location_preference, matches):
+        logger.warning("Location verification provider failed or timed out; accepting enquiry")
+        matches = []
+
+    if matches and not is_verified_place(form.location_preference, matches):
         raise HTTPException(status_code=422, detail="Choose a location from the verified suggestions.")
     doc = form.model_dump()
     doc["created_at"] = datetime.now(timezone.utc)
@@ -695,7 +697,8 @@ async def admin_summary():
 async def admin_list_contacts():
     return await latest_docs(app.state.contacts, {
         "created_at": 1, "full_name": 1, "email": 1, "contact_number": 1,
-        "whatsapp_opt_in": 1,
+        "whatsapp_opt_in": 1, "whatsapp_answers": 1, "whatsapp_flow_status": 1,
+        "zoho_lead_id": 1, "zoho_synced_at": 1, "zoho_sync_status": 1,
     })
 
 
@@ -731,6 +734,7 @@ async def admin_list_enquiries():
         "mobile_number": 1, "location_preference": 1, "planning_to_buy": 1,
         "budget_range": 1, "payment_option": 1, "bhk_preference": 1,
         "remarks_requirements": 1, "remarks": 1,
+        "zoho_lead_id": 1, "zoho_synced_at": 1, "zoho_sync_status": 1,
     })
 
 
@@ -756,6 +760,14 @@ async def admin_delete_enquiry(lead_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Lead not found")
     return {"message": "Lead deleted"}
+
+
+@app.post("/api/admin/sync-zoho", dependencies=[Depends(require_admin)])
+async def admin_sync_zoho():
+    """Trigger a full bidirectional sync of MongoDB Atlas leads with Zoho CRM."""
+    from zoho_crm import sync_all_from_mongo
+    summary = await run_in_threadpool(sync_all_from_mongo)
+    return {"status": "success", "summary": summary}
 
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -1237,10 +1249,19 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             return twiml("I couldn't verify that city or area. Please check the spelling and try again.\n\n" + TEXT_PROMPTS["q5_location"])
 
         normalized_query = " ".join(location_query.casefold().split())
-        canonical_location = next(
-            label for label in locations
-            if any(" ".join(part.casefold().split()) == normalized_query for part in label.split(","))
-        )
+        canonical_location = None
+        for label in locations:
+            norm_lbl = " ".join(label.casefold().split())
+            if norm_lbl == normalized_query or normalized_query in norm_lbl or norm_lbl in normalized_query:
+                canonical_location = label
+                break
+            if any(" ".join(part.casefold().split()) == normalized_query for part in label.split(",")):
+                canonical_location = label
+                break
+        if not canonical_location and locations:
+            canonical_location = locations[0]
+        if not canonical_location:
+            canonical_location = location_query
         answers["location_preference"] = canonical_location
         updated = await conversations.update_one(
             {"_id": conversation["_id"], "stage": "q5_location_checking", "pending_location": location_query},
@@ -1502,17 +1523,15 @@ async def process_calendly_invitee(payload: dict, state, background_tasks: Backg
     if phone_variants:
         match_or.append({"contact_number": {"$in": phone_variants}})
     contact = await state.contacts.find_one({"whatsapp_opt_in": True, "$or": match_or}) if match_or else None
-    lead = None
-    if not contact and match_or:
-        lead_or = []
-        if email:
-            lead_or.append({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
-        if phone_variants:
-            lead_or.extend([
-                {"whatsapp_number": {"$in": phone_variants}},
-                {"mobile_number": {"$in": phone_variants}},
-            ])
-        lead = await state.enquiries.find_one({"$or": lead_or}) if lead_or else None
+    lead_or = []
+    if email:
+        lead_or.append({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
+    if phone_variants:
+        lead_or.extend([
+            {"whatsapp_number": {"$in": phone_variants}},
+            {"mobile_number": {"$in": phone_variants}},
+        ])
+    lead = await state.enquiries.find_one({"$or": lead_or}, sort=[("created_at", -1)]) if lead_or else None
     if not contact and not lead and match_or:
         contact = await state.contacts.find_one({"$or": match_or})
     matched = contact or lead
@@ -1569,7 +1588,7 @@ async def process_calendly_invitee(payload: dict, state, background_tasks: Backg
         notification_status = "not_opted_in"
     elif not recipient_phone:
         notification_status = "missing_phone"
-    elif not window_open and not (TWILIO_WHATSAPP_SANDBOX or BOOKING_TEMPLATE_SID or CALENDLY_BOOKING_TEMPLATE_SID):
+    elif not window_open and (TWILIO_WHATSAPP_SANDBOX or not BOOKING_TEMPLATE_SID):
         notification_status = "template_not_configured"
     else:
         notification_status = "queued"
@@ -1598,9 +1617,17 @@ async def process_calendly_invitee(payload: dict, state, background_tasks: Backg
         {"invitee_uri": invitee_uri},
         {"$set": {"status": notification_status}, "$unset": {"lease_until": ""}},
     )
+    # Preserve property enquiry preferences (location, budget, BHK, timeline)
+    prop_data = {}
+    if lead:
+        prop_data.update(lead)
+    if contact and contact.get("whatsapp_answers"):
+        prop_data.update(contact["whatsapp_answers"])
+
     background_tasks.add_task(
         sync_zoho_lead,
         {
+            **prop_data,
             **matched,
             "full_name": payload.get("name") or matched.get("full_name") or " ".join(
                 part for part in (matched.get("first_name", ""), matched.get("last_name", "")) if part

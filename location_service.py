@@ -40,7 +40,7 @@ def _photon_locations_cached(query: str) -> tuple[str, ...]:
         f"https://photon.komoot.io/api/?{params}",
         headers={"User-Agent": "ProfilentPropertyEnquiry/1.0"},
     )
-    with urllib.request.urlopen(request, timeout=2) as response:
+    with urllib.request.urlopen(request, timeout=5) as response:
         data = json.loads(response.read().decode("utf-8"))
 
     labels, seen = [], set()
@@ -128,6 +128,17 @@ def _verified_locations_cached(query: str) -> tuple[str, ...]:
     photon_error = None
     try:
         locations = photon_locations(query)
+        if not locations and "," in query:
+            parts = [p.strip() for p in query.split(",") if p.strip()]
+            for p in parts:
+                if len(p) >= 3:
+                    try:
+                        sub_locs = photon_locations(p)
+                        if sub_locs:
+                            locations = sub_locs
+                            break
+                    except Exception:
+                        pass
         if locations:
             return tuple(locations)
     except Exception as exc:
@@ -142,12 +153,39 @@ def _verified_locations_cached(query: str) -> tuple[str, ...]:
 
 
 def is_verified_place(query: str, labels: list[str]) -> bool:
-    """Require a meaningful exact match to a returned place component."""
-    normalized = " ".join(query.casefold().split())
-    if len(normalized) < 3:
+    """Verify if query matches any returned place label, full string, or component."""
+    if not query or not labels:
         return False
-    return any(
-        normalized == " ".join(part.casefold().split())
-        for label in labels
-        for part in label.split(",")
-    )
+    normalized = " ".join(query.casefold().split())
+    if len(normalized) < 2:
+        return False
+
+    query_tokens = [
+        " ".join(t.casefold().split())
+        for t in normalized.replace(",", " ").split()
+        if len(t) >= 2
+    ]
+
+    for label in labels:
+        norm_label = " ".join(label.casefold().split())
+
+        # 1. Exact match with the full label
+        if normalized == norm_label:
+            return True
+
+        # 2. Query is a substring of label, or label is a substring of query
+        if normalized in norm_label or norm_label in normalized:
+            return True
+
+        # 3. Match against comma-separated parts of the label (e.g. "Haldwani")
+        label_parts = [" ".join(part.casefold().split()) for part in label.split(",")]
+        for part in label_parts:
+            if normalized == part or part in normalized or normalized in part:
+                return True
+
+        # 4. Token overlap: if any significant token from the query matches a label component
+        for token in query_tokens:
+            if any(token == part for part in label_parts):
+                return True
+
+    return False

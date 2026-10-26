@@ -36,10 +36,6 @@ BOOKING_CONFIRMATION_TEMPLATE_BODY = (
     "Booking email: {{2}}. Location or joining link: {{7}}. {{8}} Reply STOP to opt out."
 )
 
-# Twilio's shared WhatsApp Sandbox only supports its built-in approved templates.
-SANDBOX_APPOINTMENT_TEMPLATE_SID = "HXb5b62575e6e4ff6129ad7c8efe1f983e"
-
-
 def start_template_variables(full_name: str, email: str, phone: str) -> dict[str, str]:
     """Fill the approved start template with the customer's submitted details."""
     return {"1": full_name, "2": email, "3": phone}
@@ -263,8 +259,20 @@ def send_text(to_phone: str, body: str) -> str | None:
             body=body,
         )
         return message.sid
-    except Exception:
-        logger.exception("Could not send WhatsApp text (phone suffix=%s)", _phone_suffix(to_phone))
+    except Exception as exc:
+        err_msg = str(exc)
+        if "ContentSid" in err_msg or getattr(exc, "code", None) in (21654, 92005, 63016, 63018):
+            logger.warning(
+                "WhatsApp text not sent (phone suffix=%s): 24h session is closed; customer must message first via prefill link (%s)",
+                _phone_suffix(to_phone),
+                err_msg.splitlines()[0] if err_msg else "ContentSid Required",
+            )
+        else:
+            logger.warning(
+                "Could not send WhatsApp text (phone suffix=%s): %s",
+                _phone_suffix(to_phone),
+                err_msg.splitlines()[0] if err_msg else str(exc),
+            )
         return None
 
 
@@ -295,7 +303,8 @@ def booking_window_open(conversation: dict | None) -> bool:
     """True when the customer's last inbound WhatsApp message is still inside 24 hours."""
     if not conversation:
         return False
-    timestamp = conversation.get("last_inbound_at") or conversation.get("updated_at")
+    # Meta WhatsApp 24-hour window requires an inbound customer message
+    timestamp = conversation.get("last_inbound_at")
     if not timestamp:
         return False
     if getattr(timestamp, "tzinfo", None) is None:
@@ -304,17 +313,20 @@ def booking_window_open(conversation: dict | None) -> bool:
 
 
 def send_booking_confirmation(recipient_phone: str, variables: dict, window_open: bool) -> str | None:
-    """Send a booking template; use free-form text only as a safe in-session fallback."""
+    """Send full booking details using an approved template or open-session text."""
     sender_digits = re.sub(r"\D", "", TWILIO_WHATSAPP_FROM)
     if sender_digits == "14155238886":
-        # The shared Sandbox rejects custom templates. Use Twilio's appointment
-        # reminder template; form name/email were already included in the start chat.
-        return send_content(
-            recipient_phone,
-            SANDBOX_APPOINTMENT_TEMPLATE_SID,
-            {"1": variables.get("sandbox_date", "Booking date"), "2": variables.get("sandbox_time", "Booking time")},
-            purpose="sandbox_booking_confirmation",
+        # The Sandbox has only a small set of account-provided templates. A
+        # hard-coded example Content SID is not guaranteed to belong to this
+        # account, so send full booking details as free-form text only while
+        # the customer's 24-hour service window is open.
+        if window_open:
+            return send_text(recipient_phone, booking_confirmation_text(variables))
+        logger.error(
+            "Sandbox booking confirmation skipped: the customer service window is closed; "
+            "use a registered WhatsApp sender and an approved booking template."
         )
+        return None
     if BOOKING_TEMPLATE_SID:
         message_sid = send_content(
             recipient_phone,
@@ -369,30 +381,16 @@ async def start_questionnaire(
     )
     is_sandbox = re.sub(r"\D", "", TWILIO_WHATSAPP_FROM) == "14155238886"
     if is_sandbox:
-        # The shared Sandbox cannot send custom templates. Only send the
-        # form details as free-form text during the customer's 24-hour window.
-        if not sandbox_window_open:
-            await conversations.update_one(
-                {"phone": phone},
-                {"$set": {"status": "awaiting_customer_start", "updated_at": datetime.now(timezone.utc)}},
-            )
-            return {"started": False, "status": "sandbox_session_required"}
-        message_sid = await run_in_threadpool(
-            send_text,
-            phone,
-            start_message_text(full_name, email, phone, requirement),
-        )
-        if not message_sid:
-            await conversations.update_one(
-                {"phone": phone},
-                {"$set": {"status": "awaiting_customer_start", "updated_at": datetime.now(timezone.utc)}},
-            )
-            return {"started": False, "status": "sandbox_session_required"}
+        # In Twilio Sandbox (+14155238886), proactive outbound messages without
+        # a Meta-approved template throw 'ContentSid Required' (error 21654).
+        # The web contact form immediately redirects the customer to WhatsApp
+        # with 'Hi' prefilled. We set status to 'awaiting_customer_start' so the
+        # questionnaire begins as soon as they tap Send.
         await conversations.update_one(
             {"phone": phone},
-            {"$set": {"status": "awaiting_location", "start_message_sid": message_sid, "updated_at": datetime.now(timezone.utc)}},
+            {"$set": {"status": "awaiting_customer_start", "updated_at": datetime.now(timezone.utc)}},
         )
-        return {"started": True, "status": "accepted"}
+        return {"started": True, "status": "awaiting_customer_start"}
 
     configuration = whatsapp_configuration()
     if not configuration["outbound_configured"]:

@@ -27,6 +27,10 @@ const form = document.getElementById("enquiryForm");
 const submitBtn = document.getElementById("submitBtn");
 const mobile = document.getElementById("mobile_number");
 const popup = document.getElementById("successPopup");
+const errorPopup = document.getElementById("errorPopup");
+const errorMessage = document.getElementById("errorMessage");
+const errorTitle = document.getElementById("errorTitle");
+let fieldToFocusAfterError = null;
 
 function showPopup() {
   popup.hidden = false;
@@ -38,7 +42,67 @@ function hidePopup() {
 document.getElementById("popupOk").addEventListener("click", hidePopup);
 document.getElementById("popupClose").addEventListener("click", hidePopup);
 popup.addEventListener("click", (e) => { if (e.target === popup) hidePopup(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") hidePopup(); });
+
+function hideErrorPopup() {
+  errorPopup.hidden = true;
+  if (fieldToFocusAfterError) fieldToFocusAfterError.focus();
+}
+document.getElementById("errorRetry").addEventListener("click", hideErrorPopup);
+errorPopup.addEventListener("click", (e) => { if (e.target === errorPopup) hideErrorPopup(); });
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    hidePopup();
+    if (!errorPopup.hidden) hideErrorPopup();
+  }
+});
+
+function fieldLabel(fieldName) {
+  const labels = {
+    first_name: "First name",
+    last_name: "Last name",
+    email: "Email",
+    mobile_number: "Mobile number",
+    location_preference: "Location preference",
+    planning_to_buy: "Planning to buy",
+    budget_range: "Budget range",
+    payment_option: "Payment option",
+    bhk_preference: "BHK preference",
+    remarks_requirements: "Remarks / requirements",
+  };
+  return labels[fieldName] || "Field";
+}
+
+function presentApiError(data, status) {
+  fieldToFocusAfterError = null;
+  const detail = data?.detail;
+  if (Array.isArray(detail)) {
+    const messages = detail.map((item) => {
+      const location = Array.isArray(item.loc) ? item.loc.at(-1) : "";
+      if (location && location !== "body") fieldToFocusAfterError = form.elements.namedItem(location);
+      const reason = item.msg === "Field required" ? "is required" : item.msg;
+      return `${fieldLabel(location)} ${reason}.`;
+    });
+    return messages.join(" ");
+  }
+  if (typeof detail === "string") {
+    if (/location/i.test(detail)) fieldToFocusAfterError = form.elements.namedItem("location_preference");
+    else if (/mobile|phone/i.test(detail)) fieldToFocusAfterError = form.elements.namedItem("mobile_number");
+    else if (/email/i.test(detail)) fieldToFocusAfterError = form.elements.namedItem("email");
+    return detail;
+  }
+  return status === 422
+    ? "Some information could not be validated. Please check your entries and try again."
+    : "We could not save your enquiry right now. Please try again in a moment.";
+}
+
+function showError(message, title = "CHECK YOUR DETAILS", field = null) {
+  if (errorTitle) errorTitle.textContent = title;
+  errorMessage.textContent = message;
+  fieldToFocusAfterError = field;
+  errorPopup.hidden = false;
+  document.getElementById("errorRetry").focus();
+}
 
 // Fill the dropdowns
 for (const [id, list] of Object.entries(OPTIONS)) {
@@ -60,7 +124,12 @@ form.addEventListener("submit", async (e) => {
 
   if (!form.checkValidity()) {
     form.classList.add("was-validated");
-    form.querySelector(":invalid").focus();
+    const invalidField = form.querySelector(":invalid");
+    if (invalidField) {
+      invalidField.focus();
+      let label = invalidField.previousElementSibling ? invalidField.previousElementSibling.textContent.replace("*", "").trim() : "field";
+      showError(`Please fill in or correct the ${label} before submitting.`, "CHECK YOUR DETAILS", invalidField);
+    }
     return;
   }
 
@@ -83,12 +152,12 @@ form.addEventListener("submit", async (e) => {
       form.classList.remove("was-validated");
       showPopup();
     } else if (res.status === 422) {
-      alert(data.detail || "Please choose a verified location and check your details.");
+      showError(presentApiError(data, 422), "CHECK YOUR DETAILS");
     } else {
-      alert(data.detail || "Something went wrong.");
+      showError(presentApiError(data, res.status), "UNABLE TO SUBMIT");
     }
   } catch (err) {
-    alert("Could not reach the server. Please try again.");
+    showError("Could not reach the server. Please check your internet connection and try again.", "CONNECTION ERROR");
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = "Submit Enquiry";

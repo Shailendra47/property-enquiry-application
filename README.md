@@ -55,6 +55,8 @@ Configure these values in your local .env (see .env.example):
 
 Authorize the Zoho OAuth client with the CRM Leads scope (ZohoCRM.modules.leads.ALL), offline access, and the exact redirect URI registered in Zoho. Exchange a newly generated authorization code at {ZOHO_ACCOUNTS_URL}/oauth/v2/token using grant_type=authorization_code, client_id, client_secret, redirect_uri, and code; copy the returned refresh_token into .env. Authorization codes expire quickly and must not be used as refresh tokens. Restart the app after updating .env.
 
+After updating `.env`, run `.venv\\Scripts\\python.exe check_zoho_connection.py` from the project folder. This refreshes OAuth and makes one read-only request to the configured CRM module; it does not create or update records. A Zoho `invalid_code` response means the configured value was rejected as a refresh token. Generate a new grant for the same OAuth client and data center, and copy the returned `refresh_token` value into `.env`.
+
 The OAuth client secret was visible in the shared screenshot. Rotate it in Zoho before putting the replacement in .env; also generate a new authorization code rather than using the temporary code shown there.
 
 Zoho's Leads module must have the standard First_Name, Last_Name, Company, Email, Phone, Mobile, and Description fields available. CRM sync errors are logged and do not fail an enquiry submission.
