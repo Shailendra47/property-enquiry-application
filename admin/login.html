@@ -1,112 +1,419 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin Login | Property CRM</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box}
-  body{
-    margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-    background:#12a4dd;font-family:Poppins,Arial,sans-serif;
-  }
-  .wrap{width:100%;max-width:400px;padding:24px}
-  .brand{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:34px}
-  .badge{
-    width:48px;height:48px;border-radius:50%;border:3px solid #fff;
-    display:grid;place-items:center;flex-shrink:0;
-  }
-  .badge svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  .brand span{color:#fff;font-size:1.7rem;font-weight:400;letter-spacing:.28em;margin-left:-.28em}
-  form{background:#fff;border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.15);overflow:hidden}
-  .field{padding:18px 20px;border-bottom:1px solid #eee;position:relative}
-  .field:last-of-type{border-bottom:none}
-  .field label{display:block;font-size:.7rem;color:#9aa0a6;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
-  .field input{
-    width:100%;border:0;outline:0;font:inherit;font-size:1.05rem;color:#333;padding:2px 0;background:transparent;
-  }
-  .field.pw{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .field.pw > div{flex:1;min-width:0}
-  .hint{font-size:.8rem;color:#bbb;white-space:nowrap;flex-shrink:0}
-  .btn{
-    display:block;width:100%;margin-top:22px;padding:16px;border:0;border-radius:6px;
-    background:#f7b733;color:#8a5a00;font:inherit;font-weight:700;font-size:1.05rem;
-    letter-spacing:.02em;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.12);
-  }
-  .btn:hover{background:#f5ad1f}
-  .btn:disabled{opacity:.7;cursor:default}
-  .error{
-    margin-top:16px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.5);
-    border-radius:6px;padding:10px 14px;font-size:.88rem;text-align:center;
-  }
-  .error[hidden]{display:none}
-  .quick-links{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 0 22px}
-  .quick-links a{color:#fff;text-decoration:none;font-size:.78rem;font-weight:600;padding:8px 10px;border:1px solid rgba(255,255,255,.55);border-radius:7px}
-  .quick-links a:hover{background:rgba(255,255,255,.15)}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Login | Profilent</title>
+  <style>
+    :root {
+      --primary: #2A9DAE;
+      --primary-hover: #238594;
+      --primary-active: #1e7482;
+      --primary-shadow: rgba(42, 157, 174, 0.32);
+      --bg: #F7F9FA;
+      --card-bg: #FFFFFF;
+      --input-bg: #EEF1F0;
+      --border: #EEF1F0;
+      --text: #111827;
+      --text-muted: #64748b;
+      --label-color: #4b5563;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    /* Logo Header */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .brand-logo {
+      height: 44px;
+      width: auto;
+      max-width: 220px;
+      object-fit: contain;
+      display: inline-block;
+    }
+
+    /* Login Card */
+    .login-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 4px 24px -2px rgba(15, 23, 42, 0.05), 0 2px 8px -1px rgba(15, 23, 42, 0.03);
+      padding: 36px 32px;
+      width: 100%;
+    }
+
+    .card-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.015em;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .card-subtitle {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      text-align: center;
+      margin-bottom: 26px;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .input-label {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--label-color);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .input-field {
+      width: 100%;
+      height: 46px;
+      background-color: var(--input-bg) !important;
+      border: 1.5px solid var(--input-bg);
+      border-radius: 8px;
+      font-size: 14.5px;
+      font-weight: 500;
+      color: var(--text);
+      padding: 0 14px;
+      outline: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .input-field::placeholder {
+      color: #899694;
+      font-weight: 400;
+    }
+
+    .input-field:focus {
+      background-color: #ffffff !important;
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 0 3.5px rgba(42, 157, 174, 0.18) !important;
+    }
+
+    /* Password field with show/hide toggle */
+    .password-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .password-wrapper .input-field {
+      padding-right: 44px;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 4px;
+      transition: color 0.15s ease;
+    }
+
+    .toggle-password:hover {
+      color: var(--primary);
+    }
+
+    .toggle-password svg {
+      width: 19px;
+      height: 19px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Primary Submit Button */
+    .btn-submit {
+      width: 100%;
+      height: 48px;
+      background-color: var(--primary);
+      color: #ffffff;
+      font-size: 15.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px var(--primary-shadow);
+      margin-top: 8px;
+    }
+
+    .btn-submit:hover {
+      background-color: var(--primary-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(42, 157, 174, 0.4);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+      background-color: var(--primary-active);
+      box-shadow: 0 2px 8px rgba(42, 157, 174, 0.28);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Error Message Alert */
+    .error-alert {
+      margin-top: 18px;
+      background-color: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fee2e2;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .error-alert svg {
+      width: 18px;
+      height: 18px;
+      fill: #dc2626;
+      flex-shrink: 0;
+    }
+
+    .error-alert[hidden] {
+      display: none;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Quick Links */
+    .quick-links {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .quick-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .quick-link:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    /* Mobile Enhancements */
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 28px 20px;
+        border-radius: 14px;
+      }
+
+      .card-title {
+        font-size: 20px;
+      }
+
+      .input-field {
+        height: 48px;
+        font-size: 16px !important; /* Prevents iOS Safari auto-zoom */
+      }
+
+      .btn-submit {
+        height: 50px;
+        font-size: 16px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="brand">
-      <span class="badge">
-        <svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v3H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1V8a5 5 0 0 0-5-5z"/><path d="M9 8v3h6V8"/></svg>
-      </span>
-      <span>ADMIN</span>
+
+  <div class="login-container">
+    <!-- Brand Logo -->
+    <div class="brand-header">
+      <a href="/" aria-label="Profilent home">
+        <img src="/image/profilent-logo.png?v=20261027-new-logo" alt="PROFILENT - NURTURING TRUST" class="brand-logo">
+      </a>
     </div>
 
-    <form id="loginForm" autocomplete="off">
-      <div class="field">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" autocomplete="username" required autofocus>
-      </div>
-      <div class="field pw">
-        <div>
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" autocomplete="current-password" required>
+    <!-- Login Card -->
+    <div class="login-card">
+      <h1 class="card-title">Admin Sign In</h1>
+      <p class="card-subtitle">Enter your credentials to access the property dashboard</p>
+
+      <form id="loginForm" autocomplete="off" novalidate>
+        <div class="form-group">
+          <label class="input-label" for="username">Username</label>
+          <input 
+            type="text" 
+            class="input-field" 
+            id="username" 
+            name="username" 
+            placeholder="Enter username" 
+            autocomplete="username" 
+            required 
+            autofocus
+          >
         </div>
-      </div>
-    </form>
-    <button type="submit" form="loginForm" class="btn" id="loginBtn">Login</button>
-    <p class="error" id="loginError" hidden></p>
+
+        <div class="form-group">
+          <label class="input-label" for="password">Password</label>
+          <div class="password-wrapper">
+            <input 
+              type="password" 
+              class="input-field" 
+              id="password" 
+              name="password" 
+              placeholder="Enter password" 
+              autocomplete="current-password" 
+              required
+            >
+            <button type="button" class="toggle-password" id="togglePassword" aria-label="Toggle password visibility">
+              <svg id="eyeIcon" viewBox="0 0 24 24">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="loginBtn">
+          Sign In
+        </button>
+
+        <div class="error-alert" id="loginError" hidden role="alert">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          <span id="errorMessage">Invalid username or password.</span>
+        </div>
+      </form>
+    </div>
+
+    <!-- Footer Navigation Links -->
+    <div class="quick-links">
+      <a href="/" class="quick-link">← Contact Form</a>
+      <span style="color: #cbd5e1;">•</span>
+      <a href="/enquiry" class="quick-link">Enquiry Form</a>
+    </div>
   </div>
 
-<script>
-const form = document.getElementById("loginForm");
-const btn = document.getElementById("loginBtn");
-const err = document.getElementById("loginError");
+  <script>
+    const form = document.getElementById("loginForm");
+    const btn = document.getElementById("loginBtn");
+    const err = document.getElementById("loginError");
+    const errMsg = document.getElementById("errorMessage");
+    const pwdInput = document.getElementById("password");
+    const togglePwd = document.getElementById("togglePassword");
+    const eyeIcon = document.getElementById("eyeIcon");
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  err.hidden = true;
-  btn.disabled = true;
-  btn.textContent = "Logging in...";
-  try {
-    const res = await fetch("/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: document.getElementById("username").value.trim(),
-        password: document.getElementById("password").value,
-      }),
+    // Toggle Password Visibility
+    togglePwd.addEventListener("click", () => {
+      const isPassword = pwdInput.type === "password";
+      pwdInput.type = isPassword ? "text" : "password";
+      eyeIcon.innerHTML = isPassword
+        ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+        : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+      togglePwd.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
     });
-    if (res.ok) {
-      location.href = "/admin";
-      return;
-    }
-    const data = await res.json().catch(() => ({}));
-    err.textContent = res.status === 503
-      ? (data.detail || "Admin login is not configured yet.")
-      : "Invalid username or password.";
-    err.hidden = false;
-  } catch {
-    err.textContent = "Could not reach the server. Please try again.";
-    err.hidden = false;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Login";
-  }
-});
-</script>
+
+    // Form Submission Handler
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      err.hidden = true;
+
+      const username = document.getElementById("username").value.trim();
+      const password = pwdInput.value;
+
+      if (!username || !password) {
+        errMsg.textContent = "Please enter both username and password.";
+        err.hidden = false;
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Signing in...";
+
+      try {
+        const res = await fetch("/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+
+        if (res.ok) {
+          window.location.assign("/admin");
+          return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        errMsg.textContent = res.status === 503
+          ? (data.detail || "Admin login is not configured yet.")
+          : "Invalid username or password.";
+        err.hidden = false;
+      } catch (ex) {
+        errMsg.textContent = "Could not reach the server. Please check your connection.";
+        err.hidden = false;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Sign In";
+      }
+    });
+  </script>
 </body>
 </html>

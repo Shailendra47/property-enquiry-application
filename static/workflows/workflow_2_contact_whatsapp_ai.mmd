@@ -1,0 +1,50 @@
+flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef success fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+
+    START(["Customer Visits Contact Us Page"]) --> FORM["Customer Fills Form:<br/>• First Name & Last Name<br/>• Email Address<br/>• Phone Number (+91...)<br/>• Initial Requirement<br/>• Checkbox: WhatsApp Opt-In"]
+    
+    FORM --> SUBMIT["Click 'Submit' Button"]
+    SUBMIT --> API["FastAPI: POST /api/contact"]
+
+    API --> VAL{"Pydantic Validation<br/>(E.164 Phone & Email)"}
+    VAL -->|"❌ Invalid"| ERR["HTTP 422: Return Helpful Error Message"]
+    VAL -->|"✅ Valid"| SAVE["Insert into MongoDB Atlas<br/>('contacts' collection)"]
+
+    SAVE --> OPT{"WhatsApp Opt-in<br/>Checked?"}
+    
+    OPT -->|"No"| NOTIF_ONLY["Send Salesperson Notification Email<br/>Send Customer Confirmation Email"]
+    OPT -->|"Yes"| START_WA["Queue WhatsApp Background Task:<br/>start_questionnaire()"]
+
+    START_WA --> TW_OUT["Twilio API Outbound Send<br/>from +1 415 523 8886"]
+    TW_OUT --> PHONE["Customer Receives Notification on WhatsApp Phone"]
+
+    PHONE --> CHAT["Customer Opens Chat & Replies 'Hi' or Message"]
+    CHAT --> WEBHOOK["FastAPI: POST /webhooks/whatsapp"]
+
+    WEBHOOK --> ENGINE{"Conversational AI Engine<br/>(conversation_ai.py)"}
+    
+    subgraph AI_LOOP["Google Gemini 3.5 AI Conversational Loop"]
+        ENGINE --> Q_LOC["1. Location Preference<br/>(Haldwani, Nainital, Almora, etc.)"]
+        Q_LOC --> Q_BHK["2. Configuration / BHK<br/>(1, 2, 3 BHK, Plot, Villa, Commercial)"]
+        Q_BHK --> Q_BUD["3. Budget Range<br/>(Up to 25L, 25-50L, 50L-1Cr, 1-2Cr, >2Cr)"]
+        Q_BUD --> Q_TIME["4. Buying Timeline<br/>(Immediate, 1 Month, 3 Months, 6 Months)"]
+        Q_TIME --> Q_PAY["5. Payment Preference<br/>(Home Loan, Full Cash, Down Payment Plan)"]
+        Q_PAY --> Q_REM["6. Special Requirements / Remarks<br/>(Parking, Floor, Amenities)"]
+    end
+
+    Q_REM --> FINISH["All Core Slots Complete!"]
+    FINISH --> RECAP["Send Standardized Recap Message:<br/>✅ Thank you, [Name]! I've noted down all your requirements...<br/>📅 Schedule 1-on-1 Consultation: [Calendly Link]"]
+
+    RECAP --> QUALIFY["AI Lead Quality Analysis<br/>(Hot / Warm / Cold Scoring)"]
+    QUALIFY --> SAVE_UPSERT["Save to MongoDB 'upserted_leads'<br/>and sync to Zoho CRM if Hot"]
+
+    class START start;
+    class FORM,SUBMIT,API,SAVE,START_WA,WEBHOOK,FINISH,RECAP,QUALIFY,SAVE_UPSERT process;
+    class VAL,OPT,ENGINE decision;
+    class TW_OUT,PHONE,CHAT external;
+    class NOTIF_ONLY,ERR success;

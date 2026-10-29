@@ -1,0 +1,44 @@
+flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef hot fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b;
+    classDef admin fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
+
+    ADMIN(["Property Administrator"]) --> LOGIN["Navigate to /admin (Login Page)"]
+    LOGIN --> AUTH{"Verify Credentials<br/>(Session Middleware)"}
+    AUTH -->|"Invalid"| LOGIN_ERR["Show Authentication Error"]
+    
+    AUTH -->|"Valid"| DASH["Admin CRM Dashboard (admin.html)"]
+
+    subgraph VIEWS["Admin Dashboard Views & Navigation"]
+        DASH --> V_OVERVIEW["CRM Overview:<br/>• Today's Enquiries & Total Leads<br/>• BHK Preference Donut Chart<br/>• Latest Contact Us Submissions"]
+        DASH --> V_ALL["All Leads View:<br/>Tabular list of all raw submissions"]
+        DASH --> V_UPSERT["★ Upsert Leads View (#upsert):<br/>Deduplicated unified customer view"]
+        DASH --> V_CONTACT["Contact Us Leads View"]
+        DASH --> V_ENQ["Property Enquiries View"]
+    end
+
+    subgraph UPSERT_LOGIC["Unified Leads Processing Engine (/api/admin/upsert-leads)"]
+        V_UPSERT --> FETCH["Fetch raw 'contacts' and 'property_leads'"]
+        FETCH --> DEDUP["Deduplicate & Unify by:<br/>• Normalized 10-Digit Phone Number<br/>• Lowercase Email Address"]
+        DEDUP --> BADGES["Compute Source Badges:<br/>'Contact Us', 'Property Enquiry', 'X Submissions'"]
+        DEDUP --> REQ_RULE["Requirements Rule:<br/>Display ONLY the latest updated requirement<br/>(Full history available in hover tooltip)"]
+        DEDUP --> ZOHO_BADGE["Assign Quality / Zoho Status Badge:<br/>🔥 Hot Lead (Synced with Zoho ID)<br/>❄️ Saved in Admin (Filtered from Zoho)"]
+        DEDUP --> SAVE_COL["Synchronize to MongoDB Atlas<br/>'upserted_leads' collection"]
+    end
+
+    subgraph ADMIN_OPS["Administrative Actions"]
+        V_UPSERT --> SEARCH["Live Search & Instant Filtering<br/>(Filter by Name, Phone, Email, Preferences)"]
+        V_UPSERT --> HORIZ_SCROLL["Header Navigation & Floating Edge Scroll Arrows<br/>(Smooth horizontal table scrolling)"]
+        V_UPSERT --> BATCH_DEL["Select Leads via Checkboxes<br/>Click 'Delete Lead'"]
+        BATCH_DEL --> CASCADE_DEL["Cascading Delete Operation:<br/>POST /api/admin/leads/batch-delete<br/>Removes record from 'upserted_leads' AND<br/>all underlying 'contacts' & 'property_leads'"]
+        V_UPSERT --> RESYNC["Trigger Zoho CRM Resync<br/>(Auto background worker polls every 15s)"]
+    end
+
+    class ADMIN admin;
+    class LOGIN,DASH,V_OVERVIEW,V_ALL,V_UPSERT,V_CONTACT,V_ENQ process;
+    class AUTH decision;
+    class FETCH,DEDUP,BADGES,REQ_RULE,ZOHO_BADGE,SAVE_COL db;
+    class SEARCH,HORIZ_SCROLL,BATCH_DEL,CASCADE_DEL,RESYNC hot;

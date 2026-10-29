@@ -26,34 +26,29 @@ const OPTIONS = {
 const form = document.getElementById("enquiryForm");
 const submitBtn = document.getElementById("submitBtn");
 const mobile = document.getElementById("mobile_number");
-const popup = document.getElementById("successPopup");
 const errorPopup = document.getElementById("errorPopup");
 const errorMessage = document.getElementById("errorMessage");
 const errorTitle = document.getElementById("errorTitle");
 let fieldToFocusAfterError = null;
 
-function showPopup() {
-  popup.hidden = false;
-  document.getElementById("popupOk").focus();
-}
-function hidePopup() {
-  popup.hidden = true;
-}
-document.getElementById("popupOk").addEventListener("click", hidePopup);
-document.getElementById("popupClose").addEventListener("click", hidePopup);
-popup.addEventListener("click", (e) => { if (e.target === popup) hidePopup(); });
+// Defensive cleanup: ensure no legacy popup dialog exists in the DOM
+const legacySuccessPopup = document.getElementById("successPopup");
+if (legacySuccessPopup) legacySuccessPopup.remove();
+document.querySelectorAll(".popup-overlay:not(.alert-overlay)").forEach((el) => el.remove());
 
 function hideErrorPopup() {
-  errorPopup.hidden = true;
+  if (errorPopup) errorPopup.hidden = true;
   if (fieldToFocusAfterError) fieldToFocusAfterError.focus();
 }
-document.getElementById("errorRetry").addEventListener("click", hideErrorPopup);
-errorPopup.addEventListener("click", (e) => { if (e.target === errorPopup) hideErrorPopup(); });
+const errorRetryBtn = document.getElementById("errorRetry");
+if (errorRetryBtn) errorRetryBtn.addEventListener("click", hideErrorPopup);
+if (errorPopup) {
+  errorPopup.addEventListener("click", (e) => { if (e.target === errorPopup) hideErrorPopup(); });
+}
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    hidePopup();
-    if (!errorPopup.hidden) hideErrorPopup();
+  if (e.key === "Escape" && errorPopup && !errorPopup.hidden) {
+    hideErrorPopup();
   }
 });
 
@@ -111,10 +106,10 @@ for (const [id, list] of Object.entries(OPTIONS)) {
   list.forEach((item) => select.add(new Option(item, item)));
 }
 
-// Mobile: optional +, then 10-15 digits (spaces and hyphens allowed)
+// Mobile: optional +, then 7-15 digits (spaces and hyphens allowed)
 function checkMobile() {
   const digits = mobile.value.replace(/[\s-]/g, "");
-  mobile.setCustomValidity(/^\+?[0-9]{10,15}$/.test(digits) ? "" : "invalid");
+  mobile.setCustomValidity(/^\+?[0-9]{7,15}$/.test(digits) ? "" : "invalid");
 }
 mobile.addEventListener("input", checkMobile);
 
@@ -136,6 +131,27 @@ form.addEventListener("submit", async (e) => {
   const payload = {};
   new FormData(form).forEach((value, key) => (payload[key] = value.trim()));
 
+  // Merge country code with mobile number into E.164 international format
+  const countryCode = form.elements.namedItem("country_code")?.value || "+91";
+  let rawNumber = (payload.mobile_number || "").replace(/[\s-]/g, "");
+  const digitsOnly = rawNumber.replace(/\D/g, "").replace(/^0+/, "");
+  if (countryCode === "+91") {
+    if (!/^[6-9]\d{9}$/.test(digitsOnly)) {
+      showError("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
+      const phoneInput = form.elements.namedItem("mobile_number");
+      if (phoneInput) phoneInput.focus();
+      return;
+    }
+  } else if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+    showError("Please enter a valid mobile number (7 to 15 digits).");
+    const phoneInput = form.elements.namedItem("mobile_number");
+    if (phoneInput) phoneInput.focus();
+    return;
+  }
+
+  payload.mobile_number = rawNumber.startsWith("+") ? `+${digitsOnly}` : `${countryCode}${digitsOnly}`;
+  delete payload.country_code;
+
   submitBtn.disabled = true;
   submitBtn.textContent = "Submitting...";
 
@@ -148,17 +164,41 @@ form.addEventListener("submit", async (e) => {
     const data = await res.json();
 
     if (res.ok) {
-      form.reset();
-      form.classList.remove("was-validated");
-      showPopup();
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Enquiry";
+
+      const whatsappUrl = data.whatsapp_url || "https://wa.me/14155238886?text=Hi";
+      const phoneMatch = whatsappUrl.match(/wa\.me\/(\d+)/);
+      const phoneDigits = phoneMatch ? phoneMatch[1] : "14155238886";
+
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const appUrl = `whatsapp://send?phone=${phoneDigits}&text=Hi`;
+
+      // Trigger native WhatsApp application directly on device
+      window.location.href = appUrl;
+
+      if (isMobile) {
+        setTimeout(() => {
+          window.location.href = `https://api.whatsapp.com/send?phone=${phoneDigits}&text=Hi`;
+        }, 2500);
+      }
+
+      // Refresh page after submitting
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+      return;
     } else if (res.status === 422) {
       showError(presentApiError(data, 422), "CHECK YOUR DETAILS");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Enquiry";
     } else {
       showError(presentApiError(data, res.status), "UNABLE TO SUBMIT");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Enquiry";
     }
   } catch (err) {
     showError("Could not reach the server. Please check your internet connection and try again.", "CONNECTION ERROR");
-  } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = "Submit Enquiry";
   }

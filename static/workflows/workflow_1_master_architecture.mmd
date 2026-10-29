@@ -1,0 +1,81 @@
+flowchart TD
+    %% Styling Classes
+    classDef primary fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef secondary fill:#f1f5f9,stroke:#cbd5e1,stroke-width:1.5px,color:#1e293b;
+    classDef database fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+    classDef hot fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+    classDef accent fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
+
+    %% Entry Points
+    subgraph S1["1. Client Entry Points"]
+        V["Website Visitor"] --> W1["Contact Us Page<br/>(/ - index.html)"]
+        V --> W2["Property Enquiry Page<br/>(/enquiry - enquiry.html)"]
+        V --> W3["WhatsApp Direct Chat<br/>(wa.me / Twilio Sandbox)"]
+        V --> W4["Calendly Schedule<br/>(/schedule)"]
+    end
+
+    %% FastAPI Engine
+    subgraph S2["2. FastAPI Backend Engine (main.py)"]
+        W1 -->|"Submit Contact Form"| EP1["POST /api/contact"]
+        W2 -->|"Submit Property Form"| EP2["POST /api/enquiry"]
+        W2 -.->|"Search Locations"| EP3["GET /api/locations<br/>(Photon / OSM)"]
+
+        EP1 --> VAL1["Validate Schema<br/>(ContactForm)"]
+        EP2 --> VAL2["Validate Schema<br/>(PropertyEnquiryForm)"]
+
+        VAL1 --> BG["Background Tasks Queue"]
+        VAL2 --> BG
+    end
+
+    %% Database Storage
+    subgraph S3["3. MongoDB Atlas Database Layer"]
+        VAL1 --> DB1[("contacts<br/>Collection")]
+        VAL2 --> DB2[("property_leads<br/>Collection")]
+        DB3[("whatsapp_conversations<br/>Collection")]
+        DB4[("upserted_leads<br/>Unified Collection")]
+        DB5[("appointments<br/>Collection")]
+    end
+
+    %% WhatsApp AI Engine
+    subgraph S4["4. WhatsApp AI Conversational Bot"]
+        BG -->|"Trigger Opt-In Greeting"| TW1["Twilio WhatsApp API<br/>(+1 415 523 8886)"]
+        W3 --> TW2["Customer Messages on WhatsApp"]
+        TW1 --> TW2
+        TW2 --> WH1["POST /webhooks/whatsapp"]
+        WH1 --> AI["Google Gemini AI Engine<br/>(conversation_ai.py)"]
+        AI <-->|"Load & Save State"| DB3
+        AI -->|"Interactive Questions<br/>(Location, BHK, Budget, Timeline, Payment, Remarks)"| TW2
+        AI -->|"Complete Questionnaire"| RECAP["Standardized Recap Message<br/>+ Calendly Booking Link"]
+        RECAP --> TW2
+    end
+
+    %% Lead Evaluation & Zoho Sync
+    subgraph S5["5. AI Lead Qualification & Zoho CRM Integration"]
+        AI --> EVAL["AI Lead Intent Evaluator<br/>(Gemini 3.5 Flash Lite)"]
+        VAL2 --> EVAL
+        EVAL -->|"Lead Score >= 60<br/>High Intent / Immediate"| HOT{"Lead Rating?"}
+        HOT -->|"🔥 HOT LEAD"| Z1["Zoho CRM Leads Module<br/>(OAuth v8 Upsert API)"]
+        HOT -->|"❄️ WARM / COLD"| DB4
+        Z1 -->|"Save Zoho Lead ID"| DB4
+    end
+
+    %% Calendly & Admin
+    subgraph S6["6. Calendly Booking & Admin Portal"]
+        W4 --> CAL["Customer Books 30-Min Slot"]
+        CAL --> WH2["POST /webhooks/calendly"]
+        WH2 --> DB5
+        WH2 -->|"Update Appointment"| Z1
+        WH2 -->|"Send WhatsApp Booking Confirmation"| TW1
+
+        ADMIN["CRM Administrator"] --> ADM_PAGE["GET /admin<br/>(admin.html)"]
+        ADM_PAGE <-->|"Unified Upsert Leads & Cascade Delete"| DB4
+        ADM_PAGE <-->|"Enquiries & Contacts Overview"| DB1
+    end
+
+    class V,W1,W2,W3,W4 secondary;
+    class EP1,EP2,EP3,VAL1,VAL2,BG,WH1,AI,RECAP primary;
+    class DB1,DB2,DB3,DB4,DB5 database;
+    class TW1,TW2,Z1,CAL,WH2 external;
+    class HOT,EVAL hot;
+    class ADMIN,ADM_PAGE accent;

@@ -1,0 +1,45 @@
+flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef success fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+
+    START(["Customer Visits Property Enquiry Page (/enquiry)"]) --> INPUT["Customer Enters Preferences:<br/>• First & Last Name, Email, Mobile<br/>• Location (Typeahead Search)<br/>• BHK Preference<br/>• Budget Range<br/>• Planning to Buy Timeline<br/>• Payment Option<br/>• Remarks & Specific Needs"]
+
+    INPUT -.->|"Typeahead Search"| LOC_API["GET /api/locations<br/>(Photon / OpenStreetMap API)"]
+    LOC_API -.->|"Localities in Uttarakhand"| INPUT
+
+    INPUT --> SUBMIT["Click 'Submit Property Enquiry'"]
+    SUBMIT --> API["FastAPI: POST /api/enquiry"]
+
+    API --> VAL{"Pydantic Validation<br/>(PropertyEnquiryForm)"}
+    VAL -->|"❌ Error"| ERR["HTTP 422: Return Input Correction Notice"]
+    
+    VAL -->|"✅ Valid"| PERSIST["Insert Record into MongoDB Atlas<br/>('property_leads' collection)"]
+    
+    PERSIST --> INIT_CONV["Pre-populate 'whatsapp_conversations':<br/>status='complete', stage='complete',<br/>source='property_enquiry_form'"]
+
+    PERSIST --> BG_TASKS["Launch Background Tasks Queue"]
+
+    subgraph BG["Automated Background Jobs"]
+        BG_TASKS --> EMAIL["Send Confirmation Email via SMTP<br/>to Customer & Sales Team"]
+        BG_TASKS --> WA_OUT["Send Direct WhatsApp Message to Customer:<br/>format_completion_summary_message()<br/>• Complete Requirements Summary<br/>• Calendly 30-min Booking Link"]
+        BG_TASKS --> EVAL["Evaluate Lead Quality Score (0-100)<br/>& Lead Rating (Hot, Warm, Cold)"]
+    end
+
+    WA_OUT --> CUSTOMER_PHONE["Customer Receives Detailed WhatsApp Message<br/>with Hand-Picked Notification & Meeting Link"]
+
+    EVAL --> IS_HOT{"Lead Rating == 'Hot'?"}
+    IS_HOT -->|"🔥 Yes"| ZOHO_SYNC["Sync Lead Directly to Zoho CRM<br/>(Leads Module via OAuth v8 Upsert)"]
+    IS_HOT -->|"❄️ No (Warm/Cold)"| ADMIN_ONLY["Saved in MongoDB Atlas & Admin Dashboard<br/>(Filtered from Zoho CRM)"]
+
+    ZOHO_SYNC --> DB_UPSERT["Upsert to 'upserted_leads' Collection<br/>with zoho_lead_id & sync status"]
+    ADMIN_ONLY --> DB_UPSERT
+
+    class START start;
+    class INPUT,SUBMIT,API,PERSIST,INIT_CONV,BG_TASKS,EMAIL,WA_OUT,EVAL,DB_UPSERT process;
+    class VAL,IS_HOT decision;
+    class LOC_API,CUSTOMER_PHONE,ZOHO_SYNC external;
+    class ADMIN_ONLY,ERR success;

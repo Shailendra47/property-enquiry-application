@@ -1,0 +1,39 @@
+flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef success fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+
+    START(["Customer Clicks Calendly Link in WhatsApp / Email<br/>(https://calendly.com/shailendra-profilent/30min)"]) --> CAL_UI["Calendly Booking Page:<br/>• Selects Date & Time Slot (30 Mins)<br/>• Enters Name, Email & Phone Number<br/>• Confirms Appointment"]
+
+    CAL_UI --> CAL_SERVER["Calendly Webhook Triggered<br/>Event: 'invitee.created'"]
+    CAL_SERVER --> WEBHOOK["FastAPI: POST /webhooks/calendly"]
+
+    WEBHOOK --> SIG_CHECK{"Verify HMAC-SHA256 Signature<br/>(CALENDLY_WEBHOOK_SIGNING_KEY)"}
+    SIG_CHECK -->|"❌ Invalid Signature"| REJECT["HTTP 401: Unauthorized Request"]
+
+    SIG_CHECK -->|"✅ Verified"| PARSE["Extract Booking Metadata:<br/>• Invitee Name, Email, Phone<br/>• Meeting Start & End Time (IST)<br/>• Meeting Location / Join Link<br/>• Reschedule & Cancellation URLs"]
+
+    PARSE --> MATCH_LEAD{"Match Customer Phone<br/>in MongoDB Atlas?"}
+    MATCH_LEAD -->|"Found"| LINK_LEAD["Link to existing contact / enquiry record<br/>in 'property_leads' collection"]
+    MATCH_LEAD -->|"Not Found"| NEW_LEAD["Create new appointment lead record"]
+
+    LINK_LEAD & NEW_LEAD --> SAVE_APT["Insert record into 'appointments' collection<br/>Status: 'confirmed'"]
+
+    SAVE_APT --> CRM_UPDATE["Update Lead in Zoho CRM:<br/>Add Note: '30-min Consultation Booked'<br/>Update Stage: 'Meeting Scheduled'"]
+
+    SAVE_APT --> TW_CONFIRM["Twilio WhatsApp Outbound Confirmation<br/>to Customer Phone (+1 415 523 8886)"]
+
+    subgraph WA_MSG["Customer WhatsApp Confirmation"]
+        TW_CONFIRM --> MSG_CONTENT["Profilent Consultation Confirmed! 📅<br/>• Host: Property Specialist Team<br/>• Date & Time: [Formatted Start Time IST]<br/>• Join Link: [Meeting URL]<br/>• Reschedule Link: [Calendly Reschedule URL]"]
+    end
+
+    MSG_CONTENT --> NOTIFY_SALES["Send Sales Notification Email via SMTP<br/>to Sales Rep with Full Meeting Details"]
+
+    class START start;
+    class CAL_UI,CAL_SERVER,TW_CONFIRM external;
+    class WEBHOOK,PARSE,LINK_LEAD,NEW_LEAD,SAVE_APT,CRM_UPDATE,NOTIFY_SALES process;
+    class SIG_CHECK,MATCH_LEAD decision;
+    class REJECT,MSG_CONTENT success;

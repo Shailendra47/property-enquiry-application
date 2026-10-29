@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>System Workflows & Flowchart Architecture | Profilent</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #2A9DAE;
+      --primary-hover: #238594;
+      --primary-active: #1e7482;
+      --primary-light: #e6f6f8;
+      --primary-shadow: rgba(42, 157, 174, 0.28);
+      --bg: #F7F9FA;
+      --card-bg: #FFFFFF;
+      --sidebar-bg: #FFFFFF;
+      --border: #EEF1F0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --sidebar-width: 340px;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Top Navbar */
+    .navbar {
+      height: 64px;
+      padding: 0 clamp(16px, 2.5vw, 36px);
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .brand-link {
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      height: 38px;
+      width: auto;
+      max-width: 190px;
+      object-fit: contain;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-home {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1.5px solid rgba(42, 157, 174, 0.3);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 1.15rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-home:hover {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px var(--primary-shadow);
+    }
+
+    /* Main Application Layout with Left Sidebar */
+    .app-layout {
+      flex: 1;
+      display: flex;
+      height: calc(100vh - 64px);
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Left Sidebar */
+    .workflow-sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+      z-index: 50;
+    }
+
+    .sidebar-header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+
+    .sidebar-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .sidebar-title i {
+      color: var(--primary);
+    }
+
+    .sidebar-subtitle {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin: 4px 0 0;
+      line-height: 1.35;
+    }
+
+    /* Navigation List */
+    .workflow-nav {
+      flex: 1;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+    }
+
+    .workflow-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 11px 13px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      cursor: pointer;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      position: relative;
+    }
+
+    .workflow-item:hover {
+      background: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(42, 157, 174, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .workflow-item.active {
+      background: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px var(--primary-shadow);
+    }
+
+    .workflow-item.active::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 10px;
+      width: 4px;
+      background: var(--primary);
+      border-radius: 0 4px 4px 0;
+    }
+
+    .wf-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: var(--primary-light);
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .workflow-item.active .wf-icon-box {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .wf-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .wf-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .wf-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #1e293b;
+    }
+
+    .wf-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #e2e8f0;
+      color: #475569;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .workflow-item.active .wf-badge {
+      background: var(--primary-light);
+      color: var(--primary-active);
+    }
+
+    .wf-desc {
+      font-size: 0.73rem;
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .wf-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    /* Main Viewport Area */
+    .workflow-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Flowchart Top Header */
+    .workflow-header-card {
+      padding: 12px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+
+    .current-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .current-desc {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    /* Diagram Card */
+    .chart-card {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Canvas Wrap */
+    .diagram-canvas-wrap {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      min-height: 400px;
+      overflow: hidden;
+      background: radial-gradient(circle, #e2e8f0 1.2px, transparent 1.2px);
+      background-size: 26px 26px;
+      background-color: #fafbfc;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .diagram-canvas-wrap.is-dragging {
+      cursor: grabbing !important;
+    }
+
+    /* Inner Pan & Zoom Content Layer */
+    .diagram-pan-zoom {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+      padding: 30px;
+    }
+
+    /* High-Res Pre-rendered PNG Image */
+    .diagram-image {
+      max-width: 1600px;
+      width: auto;
+      height: auto;
+      border-radius: 10px;
+      box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+      background: #ffffff;
+      padding: 16px;
+      display: block;
+    }
+
+    /* Floating Toolbar */
+    .floating-toolbar {
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px 10px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.09);
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .toolbar-separator {
+      width: 1px;
+      height: 20px;
+      background: #cbd5e1;
+      margin: 0 4px;
+    }
+
+    .tool-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      height: 34px;
+      min-width: 34px;
+      padding: 0 9px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .tool-btn:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-color: #cbd5e1;
+      transform: translateY(-1px);
+    }
+
+    .tool-btn.active-mode {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .zoom-digital-pill {
+      height: 34px;
+      min-width: 58px;
+      padding: 0 8px;
+      border-radius: 7px;
+      border: 1px solid rgba(42, 157, 174, 0.35);
+      background: var(--primary-light);
+      color: var(--primary-active);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .zoom-digital-pill:hover {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .dl-btn {
+      background: #f0fdf4;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+
+    .dl-btn:hover {
+      background: #16a34a;
+      color: #ffffff;
+      border-color: #16a34a;
+    }
+
+    .dl-btn.dl-pdf {
+      background: #fef2f2;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+
+    .dl-btn.dl-pdf:hover {
+      background: #dc2626;
+      color: #ffffff;
+      border-color: #dc2626;
+    }
+
+    .dl-btn.dl-svg {
+      background: #f5f3ff;
+      color: #6d28d9;
+      border-color: #ddd6fe;
+    }
+
+    .dl-btn.dl-svg:hover {
+      background: #7c3aed;
+      color: #ffffff;
+      border-color: #7c3aed;
+    }
+
+    /* Canvas Helper Hint */
+    .canvas-hint {
+      position: absolute;
+      bottom: 14px;
+      left: 18px;
+      z-index: 40;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #64748b;
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    }
+
+    /* Node Interactivity */
+    .node {
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .node:hover {
+      filter: drop-shadow(0 4px 12px rgba(42, 157, 174, 0.45));
+    }
+
+    .node.node-active rect,
+    .node.node-active polygon,
+    .node.node-active circle {
+      stroke: #dc2626 !important;
+      stroke-width: 3.5px !important;
+      filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.55));
+    }
+
+    /* Fullscreen Mode */
+    .chart-card:fullscreen {
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navbar: Clean Profilent Logo (No toggle button next to logo) -->
+  <header class="navbar">
+    <div class="d-flex align-items-center">
+      <a href="/admin" class="brand-link" aria-label="Profilent Property CRM">
+        <img src="/image/profilent-logo.png?v=20261027-new-logo" alt="PROFILENT - NURTURING TRUST" class="brand-logo">
+      </a>
+    </div>
+    <div class="nav-actions">
+      <button type="button" class="tool-btn" id="btnDownloadAllPNGs" title="Download All 6 Workflow PNG Diagrams">
+        <i class="bi bi-collection-play-fill text-primary"></i>
+        <span>Download All PNGs</span>
+      </button>
+      <a href="/admin" class="btn-home" aria-label="Back to Admin Dashboard" title="Back to Admin Dashboard">
+        <i class="bi bi-house-door-fill"></i>
+      </a>
+    </div>
+  </header>
+
+  <!-- Application Body Layout -->
+  <div class="app-layout">
+    
+    <!-- Left Sidebar: Flowchart Menu -->
+    <aside class="workflow-sidebar" id="workflowSidebar">
+      <div class="sidebar-header">
+        <div class="d-flex align-items-center justify-content-between">
+          <span class="sidebar-title"><i class="bi bi-diagram-3-fill"></i> System Workflows</span>
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:11px;">6 Flows</span>
+        </div>
+        <p class="sidebar-subtitle">Select any workflow flowchart to view, pan, zoom, or export in high resolution.</p>
+      </div>
+
+      <!-- Navigation List -->
+      <nav class="workflow-nav" id="workflowNavList">
+        <!-- Rendered dynamically via JavaScript -->
+      </nav>
+    </aside>
+
+    <!-- Main Viewport Canvas -->
+    <main class="workflow-main">
+      
+      <!-- Top Header Card -->
+      <div class="workflow-header-card">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="badge bg-primary" id="currentWorkflowBadge" style="font-size: 10px;">Master Flow</span>
+              <h1 class="current-title mb-0" id="currentWorkflowTitle">1. Complete Master System Architecture</h1>
+            </div>
+            <p class="current-desc mb-0" id="currentWorkflowDesc">End-to-End System Architecture across Website, FastAPI, Twilio WhatsApp, Gemini AI, Zoho CRM, Calendly, and Admin CRM.</p>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <a id="btnDirectPNG" href="/image/workflows/workflow_1_master_architecture.png" target="_blank" download="workflow_1_master_architecture.png" class="tool-btn dl-btn dl-png" title="Download Pre-Rendered High-Res PNG File">
+              <i class="bi bi-download"></i>
+              <span>Download PNG File</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Diagram Canvas Card -->
+      <div class="chart-card" id="chartCard">
+
+        <!-- Floating Pan & Zoom Toolbar -->
+        <div class="floating-toolbar" id="floatingToolbar" aria-label="Flowchart Controls">
+          <!-- View Mode Switcher -->
+          <div class="toolbar-group">
+            <button type="button" class="tool-btn active-mode" id="btnModePNG" title="High-Resolution Pre-Rendered PNG Diagram"><i class="bi bi-image"></i> <span>PNG View</span></button>
+            <button type="button" class="tool-btn" id="btnModeVector" title="Interactive Vector SVG Diagram"><i class="bi bi-bezier2"></i> <span>Vector</span></button>
+          </div>
+
+          <div class="toolbar-separator"></div>
+
+          <!-- Zoom Controls -->
+          <div class="toolbar-group">
+            <button type="button" class="tool-btn" id="btnZoomOut" title="Zoom Out (Scroll Down)"><i class="bi bi-dash-lg"></i></button>
+            <button type="button" class="zoom-digital-pill" id="zoomDigital" title="Current Zoom Level. Click to Reset to 100%">100%</button>
+            <button type="button" class="tool-btn" id="btnZoomIn" title="Zoom In (Scroll Up)"><i class="bi bi-plus-lg"></i></button>
+            <button type="button" class="tool-btn" id="btnFit" title="Fit Entire Diagram to Screen"><i class="bi bi-aspect-ratio"></i></button>
+            <button type="button" class="tool-btn" id="btnFullscreen" title="Toggle Fullscreen"><i class="bi bi-fullscreen"></i></button>
+          </div>
+
+          <div class="toolbar-separator"></div>
+
+          <!-- Export Actions -->
+          <div class="toolbar-group">
+            <button type="button" class="tool-btn dl-btn dl-png" onclick="downloadCurrentPNG()" title="Download High-Res PNG">
+              <i class="bi bi-file-earmark-image"></i>
+              <span>PNG</span>
+            </button>
+            <button type="button" class="tool-btn dl-btn dl-svg" onclick="downloadSVG()" title="Download Scalable Vector SVG">
+              <i class="bi bi-filetype-svg"></i>
+              <span>SVG</span>
+            </button>
+            <button type="button" class="tool-btn dl-btn dl-pdf" onclick="downloadPDF()" title="Download Printable PDF Document">
+              <i class="bi bi-file-earmark-pdf"></i>
+              <span>PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Canvas Pan & Zoom Viewport -->
+        <div class="diagram-canvas-wrap" id="canvasWrap">
+          <div class="diagram-pan-zoom" id="diagramContent">
+            <!-- Pre-rendered High-Res PNG Image (Guaranteed 100% Instant Display) -->
+            <img id="diagramImg" class="diagram-image" src="/image/workflows/workflow_1_master_architecture.png" alt="Workflow Diagram" />
+            <!-- Live Interactive Mermaid SVG Container -->
+            <div id="diagramSvgContainer" style="display: none;"></div>
+          </div>
+
+          <!-- Canvas Hint -->
+          <div class="canvas-hint">
+            <i class="bi bi-arrows-move"></i>
+            <span>Click & drag to pan · Scroll wheel to zoom · Click node to inspect</span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Mermaid JS from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    // -------------------------------------------------------------
+    // Comprehensive Workflow Registry (All 6 System Workflows)
+    // -------------------------------------------------------------
+    const WORKFLOWS = {
+      "workflow_1_master_architecture": {
+        key: "workflow_1_master_architecture",
+        title: "1. Complete Master System Architecture",
+        shortTitle: "Master Architecture",
+        badge: "Master Flow",
+        icon: "bi-diagram-3-fill",
+        pngFile: "workflow_1_master_architecture.png",
+        description: "Complete End-to-End System Architecture across Website, FastAPI, Twilio WhatsApp, Gemini AI, Zoho CRM, Calendly, and Admin CRM.",
+        mermaid: `flowchart TD
+    classDef primary fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef secondary fill:#f1f5f9,stroke:#cbd5e1,stroke-width:1.5px,color:#1e293b;
+    classDef database fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+    classDef hot fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+    classDef accent fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
+
+    subgraph S1["1. Client Entry Points"]
+        V["Website Visitor"] --> W1["Contact Us Page<br/>(/ - index.html)"]
+        V --> W2["Property Enquiry Page<br/>(/enquiry - enquiry.html)"]
+        V --> W3["WhatsApp Direct Chat<br/>(wa.me / Twilio Sandbox)"]
+        V --> W4["Calendly Schedule<br/>(/schedule)"]
+    end
+
+    subgraph S2["2. FastAPI Backend Engine (main.py)"]
+        W1 -->|"Submit Contact Form"| EP1["POST /api/contact"]
+        W2 -->|"Submit Property Form"| EP2["POST /api/enquiry"]
+        W2 -.->|"Search Locations"| EP3["GET /api/locations<br/>(Photon / OSM)"]
+
+        EP1 --> VAL1["Validate Schema<br/>(ContactForm)"]
+        EP2 --> VAL2["Validate Schema<br/>(PropertyEnquiryForm)"]
+
+        VAL1 --> BG["Background Tasks Queue"]
+        VAL2 --> BG
+    end
+
+    subgraph S3["3. MongoDB Atlas Database Layer"]
+        VAL1 --> DB1[("contacts<br/>Collection")]
+        VAL2 --> DB2[("property_leads<br/>Collection")]
+        DB3[("whatsapp_conversations<br/>Collection")]
+        DB4[("upserted_leads<br/>Unified Collection")]
+        DB5[("appointments<br/>Collection")]
+    end
+
+    subgraph S4["4. WhatsApp AI Conversational Bot"]
+        BG -->|"Trigger Opt-In Greeting"| TW1["Twilio WhatsApp API<br/>(+1 415 523 8886)"]
+        W3 --> TW2["Customer Messages on WhatsApp"]
+        TW1 --> TW2
+        TW2 --> WH1["POST /webhooks/whatsapp"]
+        WH1 --> AI["Google Gemini AI Engine<br/>(conversation_ai.py)"]
+        AI <-->|"Load & Save State"| DB3
+        AI -->|"Interactive Questions<br/>(Location, BHK, Budget, Timeline, Payment, Remarks)"| TW2
+        AI -->|"Complete Questionnaire"| RECAP["Standardized Recap Message<br/>+ Calendly Booking Link"]
+        RECAP --> TW2
+    end
+
+    subgraph S5["5. AI Lead Qualification & Zoho CRM Integration"]
+        AI --> EVAL["AI Lead Intent Evaluator<br/>(Gemini 3.5 Flash Lite)"]
+        VAL2 --> EVAL
+        EVAL -->|"Lead Score >= 60<br/>High Intent / Immediate"| HOT{"Lead Rating?"}
+        HOT -->|"🔥 HOT LEAD"| Z1["Zoho CRM Leads Module<br/>(OAuth v8 Upsert API)"]
+        HOT -->|"❄️ WARM / COLD"| DB4
+        Z1 -->|"Save Zoho Lead ID"| DB4
+    end
+
+    subgraph S6["6. Calendly Booking & Admin Portal"]
+        W4 --> CAL["Customer Books 30-Min Slot"]
+        CAL --> WH2["POST /webhooks/calendly"]
+        WH2 --> DB5
+        WH2 -->|"Update Appointment"| Z1
+        WH2 -->|"Send WhatsApp Booking Confirmation"| TW1
+
+        ADMIN["CRM Administrator"] --> ADM_PAGE["GET /admin<br/>(admin.html)"]
+        ADM_PAGE <-->|"Unified Upsert Leads & Cascade Delete"| DB4
+        ADM_PAGE <-->|"Enquiries & Contacts Overview"| DB1
+    end
+
+    class V,W1,W2,W3,W4 secondary;
+    class EP1,EP2,EP3,VAL1,VAL2,BG,WH1,AI,RECAP primary;
+    class DB1,DB2,DB3,DB4,DB5 database;
+    class TW1,TW2,Z1,CAL,WH2 external;
+    class HOT,EVAL hot;
+    class ADMIN,ADM_PAGE accent;`
+      },
+
+      "workflow_2_contact_whatsapp_ai": {
+        key: "workflow_2_contact_whatsapp_ai",
+        title: "2. Contact Us Form & WhatsApp AI Chatbot Flow",
+        shortTitle: "Contact Us & AI Chatbot",
+        badge: "Chatbot Flow",
+        icon: "bi-chat-dots-fill",
+        pngFile: "workflow_2_contact_whatsapp_ai.png",
+        description: "Customer journey from Contact Us form submission to WhatsApp AI qualification, bullet options, and Calendly consultation.",
+        mermaid: `flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef success fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+
+    START(["Customer Visits Contact Us Page"]) --> FORM["Customer Fills Form:<br/>• First Name & Last Name<br/>• Email Address<br/>• Phone Number (+91...)<br/>• Initial Requirement<br/>• Checkbox: WhatsApp Opt-In"]
+    
+    FORM --> SUBMIT["Click 'Submit' Button"]
+    SUBMIT --> API["FastAPI: POST /api/contact"]
+
+    API --> VAL{"Pydantic Validation<br/>(E.164 Phone & Email)"}
+    VAL -->|"❌ Invalid"| ERR["HTTP 422: Return Helpful Error Message"]
+    VAL -->|"✅ Valid"| SAVE["Insert into MongoDB Atlas<br/>('contacts' collection)"]
+
+    SAVE --> OPT{"WhatsApp Opt-in<br/>Checked?"}
+    
+    OPT -->|"No"| NOTIF_ONLY["Send Salesperson Notification Email<br/>Send Customer Confirmation Email"]
+    OPT -->|"Yes"| START_WA["Queue WhatsApp Background Task:<br/>start_questionnaire()"]
+
+    START_WA --> TW_OUT["Twilio API Outbound Send<br/>from +1 415 523 8886"]
+    TW_OUT --> PHONE["Customer Receives Notification on WhatsApp Phone"]
+
+    PHONE --> CHAT["Customer Opens Chat & Replies 'Hi' or Message"]
+    CHAT --> WEBHOOK["FastAPI: POST /webhooks/whatsapp"]
+
+    WEBHOOK --> ENGINE{"Conversational AI Engine<br/>(conversation_ai.py)"}
+    
+    subgraph AI_LOOP["Google Gemini 3.5 AI Conversational Loop"]
+        ENGINE --> Q_LOC["1. Location Preference<br/>(Haldwani, Nainital, Almora, etc.)"]
+        Q_LOC --> Q_BHK["2. Configuration / BHK<br/>(1, 2, 3 BHK, Plot, Villa, Commercial)"]
+        Q_BHK --> Q_BUD["3. Budget Range<br/>(Up to 25L, 25-50L, 50L-1Cr, 1-2Cr, >2Cr)"]
+        Q_BUD --> Q_TIME["4. Buying Timeline<br/>(Immediate, 1 Month, 3 Months, 6 Months)"]
+        Q_TIME --> Q_PAY["5. Payment Preference<br/>(Home Loan, Full Cash, Down Payment Plan)"]
+        Q_PAY --> Q_REM["6. Special Requirements / Remarks<br/>(Parking, Floor, Amenities)"]
+    end
+
+    Q_REM --> FINISH["All Core Slots Complete!"]
+    FINISH --> RECAP["Send Standardized Recap Message:<br/>✅ Thank you, [Name]! I've noted down all your requirements...<br/>📅 Schedule 1-on-1 Consultation: [Calendly Link]"]
+
+    RECAP --> QUALIFY["AI Lead Quality Analysis<br/>(Hot / Warm / Cold Scoring)"]
+    QUALIFY --> SAVE_UPSERT["Save to MongoDB 'upserted_leads'<br/>and sync to Zoho CRM if Hot"]
+
+    class START start;
+    class FORM,SUBMIT,API,SAVE,START_WA,WEBHOOK,FINISH,RECAP,QUALIFY,SAVE_UPSERT process;
+    class VAL,OPT,ENGINE decision;
+    class TW_OUT,PHONE,CHAT external;
+    class NOTIF_ONLY,ERR success;`
+      },
+
+      "workflow_3_property_enquiry": {
+        key: "workflow_3_property_enquiry",
+        title: "3. Property Enquiry Submission & Direct Confirmation Flow",
+        shortTitle: "Property Enquiry Flow",
+        badge: "Enquiry Flow",
+        icon: "bi-house-heart-fill",
+        pngFile: "workflow_3_property_enquiry.png",
+        description: "Customer journey from Property Enquiry form with location typeahead to database save, instant WhatsApp recap, and Zoho sync.",
+        mermaid: `flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef success fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+
+    START(["Customer Visits Property Enquiry Page (/enquiry)"]) --> INPUT["Customer Enters Preferences:<br/>• First & Last Name, Email, Mobile<br/>• Location (Typeahead Search)<br/>• BHK Preference<br/>• Budget Range<br/>• Planning to Buy Timeline<br/>• Payment Option<br/>• Remarks & Specific Needs"]
+
+    INPUT -.->|"Typeahead Search"| LOC_API["GET /api/locations<br/>(Photon / OpenStreetMap API)"]
+    LOC_API -.->|"Localities in Uttarakhand"| INPUT
+
+    INPUT --> SUBMIT["Click 'Submit Property Enquiry'"]
+    SUBMIT --> API["FastAPI: POST /api/enquiry"]
+
+    API --> VAL{"Pydantic Validation<br/>(PropertyEnquiryForm)"}
+    VAL -->|"❌ Error"| ERR["HTTP 422: Return Input Correction Notice"]
+    
+    VAL -->|"✅ Valid"| PERSIST["Insert Record into MongoDB Atlas<br/>('property_leads' collection)"]
+    
+    PERSIST --> INIT_CONV["Pre-populate 'whatsapp_conversations':<br/>status='complete', stage='complete',<br/>source='property_enquiry_form'"]
+
+    PERSIST --> BG_TASKS["Launch Background Tasks Queue"]
+
+    subgraph BG["Automated Background Jobs"]
+        BG_TASKS --> EMAIL["Send Confirmation Email via SMTP<br/>to Customer & Sales Team"]
+        BG_TASKS --> WA_OUT["Send Direct WhatsApp Message to Customer:<br/>format_completion_summary_message()<br/>• Complete Requirements Summary<br/>• Calendly 30-min Booking Link"]
+        BG_TASKS --> EVAL["Evaluate Lead Quality Score (0-100)<br/>& Lead Rating (Hot, Warm, Cold)"]
+    end
+
+    WA_OUT --> CUSTOMER_PHONE["Customer Receives Detailed WhatsApp Message<br/>with Hand-Picked Notification & Meeting Link"]
+
+    EVAL --> IS_HOT{"Lead Rating == 'Hot'?"}
+    IS_HOT -->|"🔥 Yes"| ZOHO_SYNC["Sync Lead Directly to Zoho CRM<br/>(Leads Module via OAuth v8 Upsert)"]
+    IS_HOT -->|"❄️ No (Warm/Cold)"| ADMIN_ONLY["Saved in MongoDB Atlas & Admin Dashboard<br/>(Filtered from Zoho CRM)"]
+
+    ZOHO_SYNC --> DB_UPSERT["Upsert to 'upserted_leads' Collection<br/>with zoho_lead_id & sync status"]
+    ADMIN_ONLY --> DB_UPSERT
+
+    class START start;
+    class INPUT,SUBMIT,API,PERSIST,INIT_CONV,BG_TASKS,EMAIL,WA_OUT,EVAL,DB_UPSERT process;
+    class VAL,IS_HOT decision;
+    class LOC_API,CUSTOMER_PHONE,ZOHO_SYNC external;
+    class ADMIN_ONLY,ERR success;`
+      },
+
+      "workflow_4_ai_qualification_zoho": {
+        key: "workflow_4_ai_qualification_zoho",
+        title: "4. AI Lead Qualification & Zoho CRM Sync Flow",
+        shortTitle: "AI & Zoho CRM Sync",
+        badge: "CRM Sync",
+        icon: "bi-fire",
+        pngFile: "workflow_4_ai_qualification_zoho.png",
+        description: "AI-driven lead qualification gatekeeper determining lead temperature and routing hot leads into Zoho CRM.",
+        mermaid: `flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef hot fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b;
+    classDef warm fill:#fefce8,stroke:#ca8a04,stroke-width:2px,color:#854d0e;
+    classDef cold fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e40af;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+
+    START(["New Completed Lead Received<br/>(Website Enquiry or WhatsApp Questionnaire)"]) --> EXTRACT["Extract Criteria Payload:<br/>• Location, BHK, Budget Range<br/>• Buying Timeline & Payment Option<br/>• Specific Requirements & Conversation Transcript"]
+
+    EXTRACT --> AI_ENGINE["Google Gemini 3.5 AI Lead Evaluator<br/>(analyze_lead_with_ai in conversation_ai.py)"]
+
+    subgraph CRITERIA["AI Evaluation Matrix & Intent Scoring"]
+        AI_ENGINE --> C1["Urgency: Immediate / 1 Month (+35 pts)"]
+        AI_ENGINE --> C2["Budget: > 1 Crore / High Value (+30 pts)"]
+        AI_ENGINE --> C3["Financial Readiness: Full Cash / Pre-Approved (+25 pts)"]
+        AI_ENGINE --> C4["Engagement: Complete Criteria & Valid Locality (+10 pts)"]
+    end
+
+    C1 & C2 & C3 & C4 --> SCORE["Compute Final Score (0 - 100)<br/>& Executive Assessment Summary"]
+
+    SCORE --> GATE{"Intent Classification"}
+
+    GATE -->|"Score >= 60<br/>High Urgency / High Budget"| HOT["🔥 HOT LEAD<br/>(Immediate Purchasing Intent)"]
+    GATE -->|"Score 30 - 59<br/>3-6 Months / Moderate Budget"| WARM["⚡ WARM LEAD<br/>(Nurturing Pipeline)"]
+    GATE -->|"Score < 30<br/>Just Exploring / Unresponsive"| COLD["❄️ COLD LEAD<br/>(Low Priority Archive)"]
+
+    HOT --> ZOHO_CHECK{"Zoho CRM Configured?"}
+    ZOHO_CHECK -->|"Yes"| REFRESH_TOKEN["Refresh Zoho OAuth Token<br/>(POST https://accounts.zoho.in/oauth/v2/token)"]
+    REFRESH_TOKEN --> UPSERT_ZOHO["POST https://www.zohoapis.in/crm/v8/Leads/upsert<br/>Payload: First Name, Last Name, Phone, Email,<br/>Property Preferences, Lead Score, Source"]
+    
+    UPSERT_ZOHO --> ZOHO_OK["Zoho Returns 200/201<br/>Capture 'zoho_lead_id'"]
+    
+    ZOHO_OK --> SAVE_HOT["Persist in MongoDB 'upserted_leads'<br/>• zoho_sync_status: 'synced'<br/>• zoho_lead_id: Record ID<br/>• lead_rating: 'Hot'"]
+
+    WARM --> SAVE_WARM["Persist in MongoDB 'upserted_leads'<br/>• zoho_sync_status: 'skipped_cold'<br/>• zoho_sync_reason: 'Filtered from Zoho (Hot leads only)'<br/>• lead_rating: 'Warm'"]
+    COLD --> SAVE_COLD["Persist in MongoDB 'upserted_leads'<br/>• zoho_sync_status: 'skipped_cold'<br/>• zoho_sync_reason: 'Filtered from Zoho (Hot leads only)'<br/>• lead_rating: 'Cold'"]
+
+    SAVE_HOT --> ADMIN_VIEW["Visible on Admin CRM Dashboard<br/>with 🔥 Hot Lead & Zoho Synced Badges"]
+    SAVE_WARM --> ADMIN_VIEW
+    SAVE_COLD --> ADMIN_VIEW
+
+    class START start;
+    class EXTRACT,AI_ENGINE,SCORE,SAVE_HOT,ADMIN_VIEW process;
+    class HOT hot;
+    class WARM warm;
+    class COLD cold;
+    class GATE,ZOHO_CHECK decision;
+    class REFRESH_TOKEN,UPSERT_ZOHO,ZOHO_OK external;
+    class SAVE_WARM,SAVE_COLD db;`
+      },
+
+      "workflow_5_calendly_booking": {
+        key: "workflow_5_calendly_booking",
+        title: "5. Calendly Consultation Booking & Reminder Flow",
+        shortTitle: "Calendly Consultation",
+        badge: "Consultation",
+        icon: "bi-calendar-event-fill",
+        pngFile: "workflow_5_calendly_booking.png",
+        description: "Seamless meeting scheduling workflow via Calendly with HMAC webhook verification and Twilio appointment confirmation.",
+        mermaid: `flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef success fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+
+    START(["Customer Clicks Calendly Link in WhatsApp / Email<br/>(https://calendly.com/shailendra-profilent/30min)"]) --> CAL_UI["Calendly Booking Page:<br/>• Selects Date & Time Slot (30 Mins)<br/>• Enters Name, Email & Phone Number<br/>• Confirms Appointment"]
+
+    CAL_UI --> CAL_SERVER["Calendly Webhook Triggered<br/>Event: 'invitee.created'"]
+    CAL_SERVER --> WEBHOOK["FastAPI: POST /webhooks/calendly"]
+
+    WEBHOOK --> SIG_CHECK{"Verify HMAC-SHA256 Signature<br/>(CALENDLY_WEBHOOK_SIGNING_KEY)"}
+    SIG_CHECK -->|"❌ Invalid Signature"| REJECT["HTTP 401: Unauthorized Request"]
+
+    SIG_CHECK -->|"✅ Verified"| PARSE["Extract Booking Metadata:<br/>• Invitee Name, Email, Phone<br/>• Meeting Start & End Time (IST)<br/>• Meeting Location / Join Link<br/>• Reschedule & Cancellation URLs"]
+
+    PARSE --> MATCH_LEAD{"Match Customer Phone<br/>in MongoDB Atlas?"}
+    MATCH_LEAD -->|"Found"| LINK_LEAD["Link to existing contact / enquiry record<br/>in 'property_leads' collection"]
+    MATCH_LEAD -->|"Not Found"| NEW_LEAD["Create new appointment lead record"]
+
+    LINK_LEAD & NEW_LEAD --> SAVE_APT["Insert record into 'appointments' collection<br/>Status: 'confirmed'"]
+
+    SAVE_APT --> CRM_UPDATE["Update Lead in Zoho CRM:<br/>Add Note: '30-min Consultation Booked'<br/>Update Stage: 'Meeting Scheduled'"]
+
+    SAVE_APT --> TW_CONFIRM["Twilio WhatsApp Outbound Confirmation<br/>to Customer Phone (+1 415 523 8886)"]
+
+    subgraph WA_MSG["Customer WhatsApp Confirmation"]
+        TW_CONFIRM --> MSG_CONTENT["Profilent Consultation Confirmed! 📅<br/>• Host: Property Specialist Team<br/>• Date & Time: [Formatted Start Time IST]<br/>• Join Link: [Meeting URL]<br/>• Reschedule Link: [Calendly Reschedule URL]"]
+    end
+
+    MSG_CONTENT --> NOTIFY_SALES["Send Sales Notification Email via SMTP<br/>to Sales Rep with Full Meeting Details"]
+
+    class START start;
+    class CAL_UI,CAL_SERVER,TW_CONFIRM external;
+    class WEBHOOK,PARSE,LINK_LEAD,NEW_LEAD,SAVE_APT,CRM_UPDATE,NOTIFY_SALES process;
+    class SIG_CHECK,MATCH_LEAD decision;
+    class REJECT,MSG_CONTENT success;`
+      },
+
+      "workflow_6_admin_crm_upsert": {
+        key: "workflow_6_admin_crm_upsert",
+        title: "6. Unified Upsert Leads & Admin CRM Dashboard Flow",
+        shortTitle: "Admin CRM & Upsert",
+        badge: "Admin CRM",
+        icon: "bi-layers-fill",
+        pngFile: "workflow_6_admin_crm_upsert.png",
+        description: "Administrative control panel: deduplicated leads, live search, single updated requirement, and cascading delete.",
+        mermaid: `flowchart TD
+    classDef start fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef process fill:#2A9DAE,stroke:#1e7482,stroke-width:2px,color:#ffffff;
+    classDef db fill:#ffffff,stroke:#2A9DAE,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef hot fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b;
+    classDef admin fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
+
+    ADMIN(["Property Administrator"]) --> LOGIN["Navigate to /admin (Login Page)"]
+    LOGIN --> AUTH{"Verify Credentials<br/>(Session Middleware)"}
+    AUTH -->|"Invalid"| LOGIN_ERR["Show Authentication Error"]
+    
+    AUTH -->|"Valid"| DASH["Admin CRM Dashboard (admin.html)"]
+
+    subgraph VIEWS["Admin Dashboard Views & Navigation"]
+        DASH --> V_OVERVIEW["CRM Overview:<br/>• Today's Enquiries & Total Leads<br/>• BHK Preference Donut Chart<br/>• Latest Contact Us Submissions"]
+        DASH --> V_ALL["All Leads View:<br/>Tabular list of all raw submissions"]
+        DASH --> V_UPSERT["★ Upsert Leads View (#upsert):<br/>Deduplicated unified customer view"]
+        DASH --> V_CONTACT["Contact Us Leads View"]
+        DASH --> V_ENQ["Property Enquiries View"]
+    end
+
+    subgraph UPSERT_LOGIC["Unified Leads Processing Engine (/api/admin/upsert-leads)"]
+        V_UPSERT --> FETCH["Fetch raw 'contacts' and 'property_leads'"]
+        FETCH --> DEDUP["Deduplicate & Unify by:<br/>• Normalized 10-Digit Phone Number<br/>• Lowercase Email Address"]
+        DEDUP --> BADGES["Compute Source Badges:<br/>'Contact Us', 'Property Enquiry', 'X Submissions'"]
+        DEDUP --> REQ_RULE["Requirements Rule:<br/>Display ONLY the latest updated requirement<br/>(Full history available in hover tooltip)"]
+        DEDUP --> ZOHO_BADGE["Assign Quality / Zoho Status Badge:<br/>🔥 Hot Lead (Synced with Zoho ID)<br/>❄️ Saved in Admin (Filtered from Zoho)"]
+        DEDUP --> SAVE_COL["Synchronize to MongoDB Atlas<br/>'upserted_leads' collection"]
+    end
+
+    subgraph ADMIN_OPS["Administrative Actions"]
+        V_UPSERT --> SEARCH["Live Search & Instant Filtering<br/>(Filter by Name, Phone, Email, Preferences)"]
+        V_UPSERT --> HORIZ_SCROLL["Header Navigation & Floating Edge Scroll Arrows<br/>(Smooth horizontal table scrolling)"]
+        V_UPSERT --> BATCH_DEL["Select Leads via Checkboxes<br/>Click 'Delete Lead'"]
+        BATCH_DEL --> CASCADE_DEL["Cascading Delete Operation:<br/>POST /api/admin/leads/batch-delete<br/>Removes record from 'upserted_leads' AND<br/>all underlying 'contacts' & 'property_leads'"]
+        V_UPSERT --> RESYNC["Trigger Zoho CRM Resync<br/>(Auto background worker polls every 15s)"]
+    end
+
+    class ADMIN admin;
+    class LOGIN,DASH,V_OVERVIEW,V_ALL,V_UPSERT,V_CONTACT,V_ENQ process;
+    class AUTH decision;
+    class FETCH,DEDUP,BADGES,REQ_RULE,ZOHO_BADGE,SAVE_COL db;
+    class SEARCH,HORIZ_SCROLL,BATCH_DEL,CASCADE_DEL,RESYNC hot;`
+      }
+    };
+
+    let activeWorkflowKey = "workflow_1_master_architecture";
+    let currentViewMode = "png"; // Default to instant, crisp pre-rendered PNG view
+
+    // Initialize Mermaid
+    try {
+      if (window.mermaid) {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'neutral',
+          flowchart: {
+            curve: 'basis',
+            useMaxWidth: false,
+            htmlLabels: true
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Mermaid init warning:", e);
+    }
+
+    // Populate Sidebar Navigation Items
+    function populateSidebar() {
+      const nav = document.getElementById("workflowNavList");
+      if (!nav) return;
+      nav.innerHTML = "";
+
+      Object.values(WORKFLOWS).forEach(wf => {
+        // Nav Item Card
+        const item = document.createElement("div");
+        item.className = `workflow-item ${wf.key === activeWorkflowKey ? 'active' : ''}`;
+        item.dataset.key = wf.key;
+        item.innerHTML = `
+          <div class="wf-icon-box"><i class="bi ${wf.icon}"></i></div>
+          <div class="wf-info">
+            <div class="wf-title-row">
+              <span class="wf-title">${wf.shortTitle}</span>
+              <span class="wf-badge">${wf.badge}</span>
+            </div>
+            <p class="wf-desc">${wf.description}</p>
+            <div class="wf-actions-row">
+              <span class="text-muted" style="font-size: 10.5px;"><i class="bi bi-arrow-right-short text-primary"></i> Click to view</span>
+            </div>
+          </div>
+        `;
+        item.addEventListener("click", () => switchWorkflow(wf.key));
+        nav.appendChild(item);
+      });
+    }
+
+    // Switch and Render Active Workflow
+    async function switchWorkflow(key) {
+      if (!WORKFLOWS[key]) return;
+      activeWorkflowKey = key;
+      const wf = WORKFLOWS[key];
+
+      // Update sidebar active highlights
+      document.querySelectorAll(".workflow-item").forEach(el => {
+        el.classList.toggle("active", el.dataset.key === key);
+      });
+
+      // Update Top Header Information
+      document.getElementById("currentWorkflowBadge").textContent = wf.badge;
+      document.getElementById("currentWorkflowTitle").textContent = wf.title;
+      document.getElementById("currentWorkflowDesc").textContent = wf.description;
+
+      // Update Direct PNG Download Link
+      const btnDirectPNG = document.getElementById("btnDirectPNG");
+      if (btnDirectPNG) {
+        btnDirectPNG.href = `/image/workflows/${wf.pngFile}`;
+        btnDirectPNG.download = wf.pngFile;
+      }
+
+      // Update Diagram Content
+      const imgEl = document.getElementById("diagramImg");
+      const svgContainer = document.getElementById("diagramSvgContainer");
+
+      if (imgEl) {
+        imgEl.onload = () => fitView();
+        imgEl.onerror = () => {
+          console.warn("Image load error, falling back to static / vector:", wf.pngFile);
+          if (!imgEl.src.includes("/static/")) {
+            imgEl.src = `/static/workflows/${wf.pngFile}`;
+          } else {
+            renderVectorDiagram(wf);
+          }
+        };
+        imgEl.src = `/image/workflows/${wf.pngFile}`;
+        imgEl.alt = wf.title;
+      }
+
+      if (currentViewMode === "png") {
+        if (imgEl) imgEl.style.display = "block";
+        if (svgContainer) svgContainer.style.display = "none";
+        setTimeout(fitView, 80);
+      } else {
+        // Vector mode
+        await renderVectorDiagram(wf);
+      }
+    }
+
+    // Render Vector Diagram via Mermaid
+    async function renderVectorDiagram(wf) {
+      const imgEl = document.getElementById("diagramImg");
+      const svgContainer = document.getElementById("diagramSvgContainer");
+      if (!window.mermaid || !svgContainer) {
+        if (imgEl) imgEl.style.display = "block";
+        return;
+      }
+
+      try {
+        const renderId = "mermaid_svg_" + Math.random().toString(36).substring(2, 9);
+        const res = await mermaid.render(renderId, wf.mermaid);
+        const svgCode = typeof res === "string" ? res : res.svg;
+        if (svgCode) {
+          svgContainer.innerHTML = svgCode;
+          svgContainer.style.display = "block";
+          if (imgEl) imgEl.style.display = "none";
+          setTimeout(fitView, 80);
+          return;
+        }
+      } catch (err) {
+        console.warn("Mermaid vector rendering warning, displaying high-res PNG instead:", err);
+      }
+
+      // Fallback to crisp PNG
+      if (imgEl) imgEl.style.display = "block";
+      if (svgContainer) svgContainer.style.display = "none";
+      setTimeout(fitView, 80);
+    }
+
+    // View Mode Switcher Listeners
+    document.getElementById("btnModePNG").addEventListener("click", () => {
+      currentViewMode = "png";
+      document.getElementById("btnModePNG").classList.add("active-mode");
+      document.getElementById("btnModeVector").classList.remove("active-mode");
+      const imgEl = document.getElementById("diagramImg");
+      const svgContainer = document.getElementById("diagramSvgContainer");
+      if (imgEl) imgEl.style.display = "block";
+      if (svgContainer) svgContainer.style.display = "none";
+      setTimeout(fitView, 80);
+    });
+
+    document.getElementById("btnModeVector").addEventListener("click", async () => {
+      currentViewMode = "vector";
+      document.getElementById("btnModeVector").classList.add("active-mode");
+      document.getElementById("btnModePNG").classList.remove("active-mode");
+      await renderVectorDiagram(WORKFLOWS[activeWorkflowKey]);
+    });
+
+    // Download All 6 Workflow PNGs
+    document.getElementById("btnDownloadAllPNGs").addEventListener("click", () => {
+      const keys = Object.keys(WORKFLOWS);
+      keys.forEach((k, idx) => {
+        setTimeout(() => {
+          const a = document.createElement("a");
+          a.href = `/image/workflows/${WORKFLOWS[k].pngFile}`;
+          a.download = WORKFLOWS[k].pngFile;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }, idx * 350);
+      });
+    });
+
+    // -------------------------------------------------------------
+    // Pan & Zoom Engine
+    // -------------------------------------------------------------
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    const canvasWrap = document.getElementById("canvasWrap");
+    const diagramContent = document.getElementById("diagramContent");
+    const zoomDigital = document.getElementById("zoomDigital");
+
+    function applyTransform(smooth = false) {
+      if (smooth) {
+        diagramContent.style.transition = "transform 0.2s cubic-bezier(0.2, 0, 0, 1)";
+        setTimeout(() => { diagramContent.style.transition = "none"; }, 220);
+      } else {
+        diagramContent.style.transition = "none";
+      }
+      diagramContent.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+      if (zoomDigital) {
+        zoomDigital.textContent = `${Math.round(scale * 100)}%`;
+      }
+    }
+
+    function setZoom(newScale, focalX, focalY, smooth = true) {
+      const minScale = 0.25;
+      const maxScale = 3.5;
+      const clamped = Math.max(minScale, Math.min(maxScale, newScale));
+
+      if (focalX !== undefined && focalY !== undefined) {
+        const factor = clamped / scale;
+        panX = focalX - (focalX - panX) * factor;
+        panY = focalY - (focalY - panY) * factor;
+      } else {
+        const wrapRect = canvasWrap.getBoundingClientRect();
+        const centerX = wrapRect.width / 2;
+        const centerY = wrapRect.height / 2;
+        const factor = clamped / scale;
+        panX = centerX - (centerX - panX) * factor;
+        panY = centerY - (centerY - panY) * factor;
+      }
+
+      scale = clamped;
+      applyTransform(smooth);
+    }
+
+    function resetView() {
+      scale = 1;
+      const wrapRect = canvasWrap.getBoundingClientRect();
+      const img = document.getElementById("diagramImg");
+      const svg = document.querySelector("#diagramSvgContainer svg");
+      let w = 1200;
+      if (svg && document.getElementById("diagramSvgContainer").style.display !== "none") {
+        w = svg.viewBox?.baseVal?.width || 1200;
+      } else if (img && img.style.display !== "none") {
+        w = img.naturalWidth || img.clientWidth || 1200;
+      }
+      panX = Math.max(20, (wrapRect.width - w) / 2);
+      panY = 24;
+      applyTransform(true);
+    }
+
+    function fitView() {
+      const wrapRect = canvasWrap.getBoundingClientRect();
+      if (!wrapRect || wrapRect.width <= 0) return;
+
+      const img = document.getElementById("diagramImg");
+      const svg = document.querySelector("#diagramSvgContainer svg");
+      const svgVisible = document.getElementById("diagramSvgContainer") && document.getElementById("diagramSvgContainer").style.display !== "none";
+
+      let targetWidth = 1400;
+      let targetHeight = 900;
+
+      if (svgVisible && svg) {
+        targetWidth = (svg.viewBox?.baseVal?.width) || svg.getBoundingClientRect().width || 1200;
+        targetHeight = (svg.viewBox?.baseVal?.height) || svg.getBoundingClientRect().height || 1000;
+      } else if (img && img.style.display !== "none") {
+        targetWidth = img.naturalWidth || img.clientWidth || 1400;
+        targetHeight = img.naturalHeight || img.clientHeight || 900;
+      }
+
+      const scaleX = (wrapRect.width - 60) / targetWidth;
+      const scaleY = (wrapRect.height - 60) / targetHeight;
+      scale = Math.max(0.3, Math.min(1.0, Math.min(scaleX, scaleY)));
+
+      panX = Math.max(16, (wrapRect.width - targetWidth * scale) / 2);
+      panY = 20;
+      applyTransform(true);
+    }
+
+    // Zoom Button Listeners
+    document.getElementById("btnZoomIn").addEventListener("click", () => setZoom(scale + 0.18));
+    document.getElementById("btnZoomOut").addEventListener("click", () => setZoom(scale - 0.18));
+    document.getElementById("zoomDigital").addEventListener("click", () => resetView());
+    document.getElementById("btnFit").addEventListener("click", () => fitView());
+
+    // Pan & Drag Listeners
+    canvasWrap.addEventListener("mousedown", (e) => {
+      if (e.button !== 0 || e.target.closest(".floating-toolbar") || e.target.closest("button") || e.target.closest("a")) return;
+      isDragging = true;
+      dragStartX = e.clientX - panX;
+      dragStartY = e.clientY - panY;
+      canvasWrap.classList.add("is-dragging");
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      panX = e.clientX - dragStartX;
+      panY = e.clientY - dragStartY;
+      applyTransform(false);
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (isDragging) {
+        isDragging = false;
+        canvasWrap.classList.remove("is-dragging");
+      }
+    });
+
+    // Mouse Wheel Zoom
+    canvasWrap.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const rect = canvasWrap.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
+      setZoom(scale * zoomFactor, mouseX, mouseY, false);
+    }, { passive: false });
+
+    // Double-click to toggle fit / zoom
+    canvasWrap.addEventListener("dblclick", (e) => {
+      if (e.target.closest(".floating-toolbar") || e.target.closest("button")) return;
+      const rect = canvasWrap.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      if (scale >= 1.3) {
+        fitView();
+      } else {
+        setZoom(scale * 1.45, mouseX, mouseY, true);
+      }
+    });
+
+    // Fullscreen Toggle
+    const chartCard = document.getElementById("chartCard");
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        chartCard.requestFullscreen?.().catch(() => {});
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    }
+    document.getElementById("btnFullscreen").addEventListener("click", toggleFullscreen);
+    document.addEventListener("fullscreenchange", () => {
+      const btn = document.getElementById("btnFullscreen");
+      const isFull = Boolean(document.fullscreenElement);
+      if (btn) {
+        btn.innerHTML = isFull ? '<i class="bi bi-fullscreen-exit"></i>' : '<i class="bi bi-fullscreen"></i>';
+        btn.title = isFull ? "Exit Fullscreen" : "Toggle Fullscreen";
+      }
+      setTimeout(fitView, 150);
+    });
+
+    // Node Click Inspection Highlight
+    document.addEventListener("click", (e) => {
+      const node = e.target.closest(".node");
+      if (node) {
+        const isAlreadyActive = node.classList.contains("node-active");
+        document.querySelectorAll(".node").forEach(n => n.classList.remove("node-active"));
+        if (!isAlreadyActive) {
+          node.classList.add("node-active");
+        }
+      } else if (!e.target.closest(".floating-toolbar") && !e.target.closest("button")) {
+        document.querySelectorAll(".node").forEach(n => n.classList.remove("node-active"));
+      }
+    });
+
+    window.addEventListener("resize", () => setTimeout(fitView, 150));
+
+    // -------------------------------------------------------------
+    // Export Functions (PNG, SVG, PDF)
+    // -------------------------------------------------------------
+    function downloadCurrentPNG() {
+      const wf = WORKFLOWS[activeWorkflowKey];
+      const link = document.createElement("a");
+      link.href = `/image/workflows/${wf.pngFile}`;
+      link.download = wf.pngFile;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function downloadSVG() {
+      const svg = document.querySelector("#diagramSvgContainer svg");
+      if (!svg || document.getElementById("diagramSvgContainer").style.display === "none") {
+        return alert("SVG vector export is active in 'Vector' mode. Click 'Vector' in the toolbar to render vector SVG, or download the PNG.");
+      }
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+      const svgUrl = URL.createObjectURL(svgBlob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = svgUrl;
+      downloadLink.download = `${activeWorkflowKey}.svg`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(svgUrl);
+    }
+
+    function downloadPDF() {
+      const wf = WORKFLOWS[activeWorkflowKey];
+      const img = document.getElementById("diagramImg");
+      const svg = document.querySelector("#diagramSvgContainer svg");
+      const isSvg = svg && document.getElementById("diagramSvgContainer").style.display !== "none";
+
+      if (isSvg) {
+        const svgData = new XMLSerializer().serializeToString(svg);
+        const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+        const URL = window.URL || window.webkitURL || window;
+        const blobURL = URL.createObjectURL(svgBlob);
+        const image = new Image();
+        image.onload = () => {
+          createPdfFromImage(image);
+          URL.revokeObjectURL(blobURL);
+        };
+        image.src = blobURL;
+      } else if (img) {
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.onload = () => {
+          createPdfFromImage(image);
+        };
+        image.src = img.src;
+      }
+    }
+
+    function createPdfFromImage(image) {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth || 1800;
+        canvas.height = image.naturalHeight || 1200;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        const pngURL = canvas.toDataURL("image/png");
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? "landscape" : "portrait";
+        const pdf = new jsPDF({
+          orientation: orientation,
+          unit: "px",
+          format: [canvas.width, canvas.height]
+        });
+
+        pdf.addImage(pngURL, "PNG", 0, 0, canvas.width, canvas.height);
+        pdf.save(`${activeWorkflowKey}.pdf`);
+      } catch (err) {
+        console.error("PDF generation error:", err);
+        window.print();
+      }
+    }
+
+    // Initialize Page on Load
+    document.addEventListener("DOMContentLoaded", () => {
+      populateSidebar();
+      switchWorkflow(activeWorkflowKey);
+      const img = document.getElementById("diagramImg");
+      if (img && img.complete && img.naturalWidth > 0) {
+        fitView();
+      }
+      setTimeout(fitView, 120);
+      setTimeout(fitView, 500);
+    });
+  </script>
+</body>
+</html>

@@ -5,173 +5,1477 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Property CRM | Admin</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--purple:#5b5ff2;--ink:#1c1f4a}
-*{box-sizing:border-box}
-body{margin:0;font-family:Poppins,Arial,sans-serif;color:#333;background:#f5f6fb;display:flex;min-height:100vh}
-[hidden]{display:none!important}
-.side{width:260px;flex-shrink:0;background:#fff;border-right:1px solid #eee;padding:24px 14px;position:sticky;top:0;height:100vh}
-.brand{display:flex;align-items:center;gap:10px;margin:0 8px 28px}
-.logo{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#e5346a,#5b5ff2);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.3rem}
-.brand small{display:block;font-size:.65rem;letter-spacing:.25em;color:#e5346a;font-weight:600}
-.brand strong{font-size:1.5rem;color:var(--ink);line-height:1}
-.group{display:flex;align-items:center;gap:10px;background:var(--purple);color:#fff;padding:12px 14px;border-radius:10px;font-weight:600;box-shadow:0 6px 16px rgba(91,95,242,.3)}
-nav{margin-top:10px}
-nav a{display:flex;gap:10px;align-items:center;padding:10px 14px;color:#666;text-decoration:none;font-size:.9rem;border-radius:8px}
-nav a:hover{background:#f4f5fb}
-nav a.on{color:var(--purple);font-weight:600}
-main{flex:1;min-width:0}
-header{display:flex;align-items:center;gap:12px;padding:16px 28px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.05)}
-header .home{width:26px;height:26px;border-radius:6px;background:var(--purple);color:#fff;display:grid;place-items:center;font-size:.85rem}
-header h1{font-size:1.25rem;font-weight:600;margin:0;color:var(--ink)}
-.admin{display:flex;align-items:center;gap:10px;line-height:1.2;font-size:.9rem}
-.public-links{display:flex;gap:8px;align-items:center;margin-left:auto}
-.public-links a{display:inline-flex;align-items:center;gap:6px;text-decoration:none;border:1px solid #e1e2ee;border-radius:7px;padding:8px 10px;color:#555;font-size:.78rem;font-weight:600;background:#fff;white-space:nowrap}
-.public-links a:hover{border-color:var(--purple);color:var(--purple);background:#f7f7ff}
-.admin small{display:block;color:#888}
-.avatar{width:36px;height:36px;border-radius:8px;background:#ddd;display:grid;place-items:center;color:#777;font-size:1.3rem}
-.logout{border:1px solid #ddd;background:#fff;border-radius:6px;padding:7px 12px;font-size:.8rem;color:#555;cursor:pointer;display:flex;align-items:center;gap:6px}
-.logout:hover{background:#f7f7fb;color:#e5346a;border-color:#e5346a}
-.panel{background:#fff;border-radius:14px;margin:18px 22px;padding:22px 24px;box-shadow:0 4px 20px rgba(0,0,0,.05)}
-.top{display:flex;justify-content:space-between;align-items:flex-start}
-.top h2{font-size:1.05rem;font-weight:700;margin:0;color:var(--ink)}
-.top p{margin:0;font-size:.8rem;color:#666}
-.total{border:1px solid #bbb;border-radius:6px;padding:5px 14px;font-size:.85rem;font-weight:500}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,150px));gap:16px;margin:20px 0 28px}
-.card{border-radius:14px;padding:16px;background:var(--bg);min-height:104px}
-.card .r{display:flex;justify-content:space-between;align-items:center}
-.card .ic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--ic)}
-.card b{font-size:1.25rem;color:#222}
-.card p{margin:12px 0 0;font-size:.82rem;font-weight:500;color:#444;line-height:1.25}
-.grid2{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:24px}
-.donut{position:relative;height:340px}
-.donut h3{font-size:.85rem;margin:0 0 6px;color:#555;text-align:center}
-.donut .cv{position:relative;height:300px}
-.box{background:#eef0fb;border-radius:12px;overflow:hidden;min-height:340px}
-.box h3{background:#f6f7fb;padding:14px 18px;font-size:.95rem;font-weight:600;margin:0;color:#444}
-.item{padding:10px 18px;border-bottom:1px solid #dcdff3;font-size:.82rem;display:grid;gap:2px}
-.item small{color:#888}.item span{color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.none{color:#e0102e;font-size:.8rem;font-weight:500;padding:16px 18px;margin:0}
-.bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap}
-.bar h2{font-size:1.05rem;font-weight:700;margin:0;color:var(--ink)}
-.bar .right{display:flex;gap:10px;align-items:center}
-.search{border:1px solid #d9d9e6;border-radius:8px;padding:8px 12px;font:inherit;font-size:.85rem;min-width:220px}
-.addbtn{background:var(--purple);color:#fff;border:0;border-radius:8px;padding:8px 16px;font:inherit;font-size:.85rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
-.addbtn:hover{background:#4a4ed6}
-.view-all{float:right;color:var(--purple);text-decoration:none;font-size:.74rem;font-weight:600;white-space:nowrap}
-.view-all:hover{text-decoration:underline}
-.tw{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.83rem}
-th{background:#f0f1fb;text-align:left;padding:10px 12px;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:#555;white-space:nowrap}
-td{padding:10px 12px;border-bottom:1px solid #eee;white-space:nowrap}
-td.wrap{white-space:normal;min-width:220px;max-width:320px}
-tr:hover td{background:#fafaff}
-.actions{display:flex;gap:6px}
-.iconbtn{width:30px;height:30px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#666;display:grid;place-items:center;cursor:pointer}
-.iconbtn:hover{background:#f0f1fb;color:var(--purple);border-color:var(--purple)}
-.iconbtn.danger:hover{background:#ffe0e4;color:#c21432;border-color:#c21432}
-.err{background:#ffe0e4;color:#b3122d;padding:10px 24px;font-size:.85rem}
-.modal-overlay{position:fixed;inset:0;background:rgba(20,22,50,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:200}
-.modal{background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.modal-head{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid #eee}
-.modal-head h3{margin:0;font-size:1.05rem;color:var(--ink)}
-.modal-x{border:0;background:none;font-size:1.4rem;line-height:1;cursor:pointer;color:#888}
-.modal-body{padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.modal-body .full{grid-column:1/-1}
-.mfield label{display:block;font-size:.78rem;font-weight:600;color:#555;margin-bottom:4px}
-.mfield input,.mfield select,.mfield textarea{width:100%;border:1px solid #d9d9e6;border-radius:6px;padding:.5rem .65rem;font:inherit;font-size:.88rem}
-.mfield textarea{resize:vertical;min-height:70px}
-.modal-err{grid-column:1/-1;background:#ffe0e4;color:#b3122d;padding:8px 12px;border-radius:6px;font-size:.82rem}
-.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 22px;border-top:1px solid #eee}
-.btn{border:0;border-radius:8px;padding:9px 20px;font:inherit;font-size:.88rem;font-weight:600;cursor:pointer}
-.btn-ghost{background:#fff;border:1px solid #ddd;color:#555}
-.btn-save{background:var(--purple);color:#fff}
-.btn-save:disabled{opacity:.6}
-.confirm-overlay{position:fixed;inset:0;z-index:300;background:rgba(25,39,63,.48);display:grid;place-items:center;padding:18px;animation:confirmFade .18s ease}
-.confirm-overlay[hidden]{display:none!important}
-.confirm-card{width:min(100%,380px);overflow:hidden;border:1px solid #d9eaf5;border-radius:15px;background:#fff;text-align:center;box-shadow:0 20px 55px rgba(17,51,88,.25);animation:confirmPop .22s ease}
-.confirm-art{height:168px;position:relative;overflow:hidden;display:grid;place-items:center;background:radial-gradient(circle at 18% 24%,#65d4e7 0 3px,transparent 4px),radial-gradient(circle at 82% 26%,#ffd873 0 3px,transparent 4px),linear-gradient(145deg,#43b3e8,#287ed1)}
-.confirm-mail{position:relative;width:132px;height:82px;margin-top:24px;border-radius:7px;background:#f8fcff;box-shadow:0 8px 0 rgba(17,73,132,.18);transform:rotate(-3deg)}
-.confirm-mail:before,.confirm-mail:after{content:"";position:absolute;bottom:0;width:0;height:0;border-top:40px solid #d8edf8;z-index:1}
-.confirm-mail:before{left:0;border-right:66px solid transparent}.confirm-mail:after{right:0;border-left:66px solid transparent}
-.confirm-flap{position:absolute;left:0;top:0;width:0;height:0;border-top:45px solid #b9e0f3;border-left:66px solid transparent;border-right:66px solid transparent}
-.confirm-question{position:absolute;z-index:2;left:48px;top:-18px;width:38px;height:30px;border-radius:4px;background:#fff;display:grid;place-items:center;color:#2475b2;font-weight:800;box-shadow:0 2px 8px rgba(16,74,125,.18)}
-.confirm-spark{position:absolute;color:#ffe27b;font-size:1.15rem}.confirm-spark.one{left:67px;top:24px}.confirm-spark.two{right:54px;bottom:23px;color:#a8eff4}
-.confirm-copy{padding:16px 24px 4px}.confirm-copy h3{margin:0 0 8px;color:#145782;font-size:1.08rem;font-weight:800}.confirm-copy p{margin:0;color:#4d6d83;font-size:.88rem;line-height:1.5}
-.confirm-actions{display:flex;justify-content:center;gap:10px;padding:16px 20px 20px}.confirm-actions button{min-width:112px;border-radius:7px;padding:9px 14px;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
-.confirm-cancel{border:1px solid #d5e3ef;background:#fff;color:#37617f}.confirm-delete{border:1px solid #246eb0;background:#287ed1;color:#fff}.confirm-delete:hover{background:#176bbd}
-@keyframes confirmFade{from{opacity:0}to{opacity:1}}@keyframes confirmPop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
-@media(max-width:1000px){.grid2{grid-template-columns:1fr}.side{display:none}.modal-body{grid-template-columns:1fr}}
-@media(max-width:760px){header{padding:14px;flex-wrap:wrap}.public-links{order:3;width:100%;margin-left:0}.admin{margin-left:auto}.public-links a{flex:1;justify-content:center}}
-/* New lead-operations dashboard theme */
-:root{--purple:#2475e8;--ink:#17253b}
-body{background:#f3f6fa;color:#263247}
-.side{background:#14243b;border-right:0;color:#fff;box-shadow:8px 0 28px rgba(20,36,59,.08)}
-.brand strong{color:#fff}.brand small{color:#74d5ce}.logo{background:linear-gradient(135deg,#1bb7aa,#357cf0)}
-.group{background:#203b5d;box-shadow:none;color:#e9f1fa}
-nav a{color:#b6c6d9}nav a:hover{background:#203b5d;color:#fff}nav a.on{background:#264c70;color:#82e0d4}
-header{min-height:74px;padding:16px 28px;border-bottom:1px solid #e8edf3;box-shadow:none}
-.panel{border:1px solid #e8edf3;box-shadow:0 8px 28px rgba(24,45,73,.045)}
-.cards{grid-template-columns:repeat(auto-fit,minmax(165px,1fr))}
-.card{border:1px solid rgba(29,48,75,.07);box-shadow:0 4px 14px rgba(24,45,73,.035)}
-.box{background:#f6f8fb}.box h3{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.view-all{float:none}
-.dashboard-hero{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:22px 24px;margin:-2px -2px 22px;border-radius:14px;background:linear-gradient(115deg,#142b49,#21466b);color:#fff}
-.dashboard-hero .eyebrow{font-size:.68rem;letter-spacing:.15em;color:#81ded3;font-weight:700}
-.dashboard-hero h2{font-size:1.45rem;font-weight:700;margin:5px 0 6px;color:#fff}
-.dashboard-hero p{margin:0;color:#d4e1ef;font-size:.83rem}
-.hero-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.hero-actions a{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border-radius:8px;background:#fff;color:#19344f;text-decoration:none;font-size:.78rem;font-weight:700;white-space:nowrap}
-.hero-actions a.primary{background:#72ddd0;color:#0f3442}
-.integration-strip{display:flex;align-items:center;gap:13px;padding:14px 16px;margin-bottom:22px;border:1px solid #dce9ed;border-radius:12px;background:#f3fbfa}
-.integration-icon{width:40px;height:40px;flex:0 0 40px;border-radius:12px;display:grid;place-items:center;background:#d4f5e9;color:#12865b;font-size:1.3rem}
-.integration-copy{min-width:0;flex:1}.integration-copy b{display:block;color:#1d344d;font-size:.88rem}.integration-copy small{display:block;color:#66788a;font-size:.74rem;margin-top:2px}
-.integration-statuses{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.status-badge{border-radius:999px;padding:6px 10px;font-size:.69rem;font-weight:700;background:#fff0dc;color:#995b0b;white-space:nowrap}
-.status-badge.ready{background:#d9f5e8;color:#16724e}
-.top h2{color:#17253b}
-@media(max-width:900px){.dashboard-hero{align-items:flex-start;flex-direction:column}.hero-actions{justify-content:flex-start}}
-@media(max-width:620px){.integration-strip{align-items:flex-start;flex-wrap:wrap}.integration-statuses{width:100%;justify-content:flex-start}.hero-actions a{flex:1;justify-content:center}}
+:root {
+  --primary: #2A9DAE;
+  --primary-hover: #238594;
+  --primary-active: #1e7482;
+  --primary-shadow: rgba(42, 157, 174, 0.3);
+  --bg: #F7F9FA;
+  --card-bg: #FFFFFF;
+  --input-bg: #EEF1F0;
+  --border: #EEF1F0;
+  --text: #111827;
+  --text-muted: #64748b;
+  --label-color: #4b5563;
+  --sidebar-bg: #FFFFFF;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Sidebar */
+.side {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  transition: transform 0.25s ease;
+}
+
+.brand-wrap {
+  margin: 0 4px 24px;
+}
+
+.brand-link {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 7px;
+  text-decoration: none;
+  color: inherit;
+  width: 180px;
+  max-width: 100%;
+}
+
+.brand-logo {
+  width: 180px;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.brand-crm-text {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--primary);
+  line-height: 1;
+  user-select: none;
+}
+
+.brand-crm-text span {
+  display: inline-block;
+  line-height: 1;
+}
+
+.brand-crm-text .crm-spacer {
+  width: 8px;
+}
+
+.brand-link:hover .brand-crm-text {
+  color: var(--primary-hover);
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--input-bg);
+  color: var(--text);
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+}
+
+.group i {
+  color: var(--primary);
+  font-size: 1rem;
+}
+
+nav {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+nav a {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+nav a i {
+  font-size: 1rem;
+  color: #94a3b8;
+  transition: color 0.15s ease;
+}
+
+nav a:hover {
+  background: #f1f5f9;
+  color: var(--text);
+}
+
+nav a:hover i {
+  color: var(--text);
+}
+
+nav a.on {
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px var(--primary-shadow);
+}
+
+nav a.on i {
+  color: #ffffff;
+}
+
+/* Main Content */
+main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Navbar Header */
+header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 68px;
+  padding: 14px clamp(16px, 2.5vw, 32px);
+  background: #ffffff;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+header .mobile-toggle {
+  display: none;
+  background: var(--input-bg);
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  color: var(--text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+  letter-spacing: -0.015em;
+}
+
+.admin {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.admin b {
+  font-size: 0.88rem;
+  color: var(--text);
+  display: block;
+}
+
+.admin small {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--input-bg);
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+
+.logout {
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.logout:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.workflow-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--input-bg);
+  color: var(--primary);
+  border: 1px solid rgba(42, 157, 174, 0.35);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.workflow-btn i {
+  font-size: 0.95rem;
+  color: var(--primary);
+  transition: color 0.2s ease;
+}
+
+.workflow-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px var(--primary-shadow);
+}
+
+.workflow-btn:hover i {
+  color: #ffffff;
+}
+
+.badge-hot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.badge-warm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-cold {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-zoho {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-sync-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fefce8;
+  color: #a16207;
+  border: 1px solid #fef08a;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Upsert Sources and Submission Count Badges */
+.badge-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.badge-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  white-space: nowrap;
+}
+
+.badge-src.enquiry {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  white-space: nowrap;
+}
+
+.badge-count.multi {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+  font-weight: 800;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+
+/* Panel Containers */
+.panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  margin: 20px clamp(16px, 2.5vw, 32px);
+  padding: 24px clamp(16px, 2.5vw, 28px);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.top h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.top p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.total {
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* KPI Summary Cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin: 18px 0 28px;
+}
+
+.card {
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  min-height: 104px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.card .r {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card .ic {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--ic);
+  font-size: 1.05rem;
+}
+
+.card b {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.card p {
+  margin: 12px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #4b5563;
+  line-height: 1.25;
+}
+
+/* Dashboard Grid: Chart + Latest */
+.grid2 {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr;
+  gap: 20px;
+}
+
+.donut {
+  position: relative;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  height: 360px;
+}
+
+.donut h3 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+  text-align: center;
+}
+
+.donut .cv {
+  position: relative;
+  height: 290px;
+}
+
+.box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+
+.box h3 {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border);
+  padding: 14px 18px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.view-all {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.view-all:hover {
+  text-decoration: underline;
+}
+
+.item {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.84rem;
+  display: grid;
+  gap: 2px;
+  background: #ffffff;
+  transition: background 0.15s ease;
+}
+
+.item:hover {
+  background: #f8fafc;
+}
+
+.item b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.item small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.item span {
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.none {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 24px 18px;
+  margin: 0;
+  text-align: center;
+}
+
+/* Header Action Bars in Tables */
+.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.bar h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.bar p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.bar .right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Inputs (#EEF1F0) */
+.search {
+  border: 1.5px solid var(--input-bg);
+  background: var(--input-bg) !important;
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 42px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+  min-width: 240px;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search::placeholder {
+  color: #899694;
+}
+
+.search:focus {
+  background: #ffffff !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(42, 157, 174, 0.18) !important;
+}
+
+/* Add Lead Button */
+.addbtn {
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 18px;
+  height: 42px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px var(--primary-shadow);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.addbtn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--primary-shadow);
+}
+
+.addbtn:active {
+  transform: translateY(0);
+  background: var(--primary-active);
+}
+
+/* Refresh Leads Button (Icon only, no outline) */
+.refbtn {
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  border-radius: 8px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.refbtn:hover {
+  background: #e6f6f8;
+  color: var(--primary-hover);
+  transform: scale(1.08);
+}
+
+.refbtn:active {
+  transform: scale(0.95);
+  background: rgba(42, 157, 174, 0.18);
+}
+
+.refbtn.refreshing {
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.refbtn.refreshing i {
+  animation: spin 0.75s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Delete Selected Lead Button (Icon only, no outline) */
+.delbtn-top {
+  background: transparent;
+  color: #dc2626;
+  border: none;
+  border-radius: 8px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.delbtn-top:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #b91c1c;
+  transform: scale(1.08);
+}
+
+.delbtn-top:active:not(:disabled) {
+  transform: scale(0.95);
+  background: #fecaca;
+}
+
+.delbtn-top:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  color: #9ca3af;
+  background: transparent;
+}
+
+.delbtn-top.active {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.col-cb {
+  width: 44px;
+  text-align: center !important;
+  padding: 10px 8px !important;
+}
+
+.cb-lead {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  accent-color: #2A9DAE;
+  vertical-align: middle;
+}
+
+/* Data Tables with Scroll Navigation */
+.tw-container {
+  position: relative;
+  width: 100%;
+}
+
+.tw {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Floating overlay scroll buttons on the table edges */
+.floating-scroll-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.16);
+  font-size: 1.25rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.95;
+}
+
+.floating-scroll-btn:hover {
+  opacity: 1;
+  background: var(--primary);
+  color: #ffffff;
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 20px var(--primary-shadow);
+}
+
+.floating-scroll-btn.scroll-right {
+  right: -14px;
+}
+
+.floating-scroll-btn.scroll-left {
+  left: -14px;
+}
+
+.floating-scroll-btn[hidden] {
+  display: none !important;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+th {
+  background: var(--input-bg);
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #4b5563;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+td.wrap {
+  white-space: normal;
+  min-width: 140px;
+  max-width: 260px;
+  line-height: 1.4;
+  color: #4b5563;
+}
+
+/* Contact info merged column */
+.c-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.25;
+}
+
+.c-info .c-mail {
+  font-size: 0.82rem;
+  color: var(--ink);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  word-break: break-all;
+}
+
+.c-info .c-mail i {
+  color: var(--primary);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+.c-info .c-tel {
+  font-size: 0.8rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.c-info .c-tel i {
+  color: #10b981;
+  font-size: 0.76rem;
+  flex-shrink: 0;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: #f8fafc;
+}
+
+/* Action Icons */
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
+.iconbtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: #4b5563;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.95rem;
+}
+
+.iconbtn:hover {
+  background: #e6f6f8;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.iconbtn.danger:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 200;
+  animation: fadeIn 0.18s ease;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  max-width: 620px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.modal-x {
+  border: 0;
+  background: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.modal-x:hover {
+  color: var(--text);
+  background: #f1f5f9;
+}
+
+.modal-body {
+  padding: 24px 26px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 16px;
+}
+
+.modal-body .full {
+  grid-column: 1 / -1;
+}
+
+.mfield label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--label-color);
+  margin-bottom: 7px;
+}
+
+.mfield input,
+.mfield select,
+.mfield textarea {
+  width: 100%;
+  border: 1.5px solid var(--input-bg);
+  background: var(--input-bg) !important;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.mfield input:focus,
+.mfield select:focus,
+.mfield textarea:focus {
+  background: #ffffff !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(42, 157, 174, 0.18) !important;
+}
+
+.mfield textarea {
+  resize: vertical;
+  min-height: 75px;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 24px;
+  border-top: 1px solid var(--border);
+  background: #fafafa;
+  border-radius: 0 0 16px 16px;
+}
+
+.btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: #4b5563;
+}
+
+.btn-ghost:hover {
+  background: #f1f5f9;
+  color: var(--text);
+}
+
+.btn-save {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px var(--primary-shadow);
+}
+
+.btn-save:hover {
+  background: var(--primary-hover);
+}
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Delete Confirm Dialog */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  animation: fadeIn 0.18s ease;
+}
+
+.confirm-card {
+  width: min(100%, 380px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #ffffff;
+  text-align: center;
+  box-shadow: 0 20px 55px rgba(15, 23, 42, 0.16);
+}
+
+.confirm-art {
+  height: 140px;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #e6f6f8;
+}
+
+.confirm-mail {
+  position: relative;
+  width: 90px;
+  height: 60px;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(42, 157, 174, 0.18);
+  display: grid;
+  place-items: center;
+  font-size: 1.8rem;
+  color: #dc2626;
+}
+
+.confirm-copy {
+  padding: 18px 24px 6px;
+}
+
+.confirm-copy h3 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.confirm-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 24px 22px;
+}
+
+.confirm-actions button {
+  min-width: 110px;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.confirm-cancel {
+  background: var(--input-bg);
+  color: #4b5563;
+}
+
+.confirm-cancel:hover {
+  background: #e2e8f0;
+}
+
+.confirm-delete {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.28);
+}
+
+.confirm-delete:hover {
+  background: #b91c1c;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Custom Popup Dialog (Exact Match to Contact Us Form) */
+.popup-overlay {
+  position: fixed; inset: 0; z-index: 1050;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem; background: rgba(30, 40, 60, .55);
+  animation: popFade .2s ease;
+}
+.popup-overlay[hidden] { display: none !important; }
+.popup {
+  position: relative; width: 100%; max-width: 480px;
+  background: #fff; border: 2px solid #2A9DAE; border-radius: 8px;
+  box-shadow: -14px 14px 0 rgba(0, 0, 0, .18);
+  animation: popIn .25s ease;
+}
+.popup-top {
+  position: relative; text-align: center; color: #fff;
+  padding: 2rem 1.25rem 2.25rem; border-radius: 6px 6px 0 0;
+  background: linear-gradient(135deg, #2A9DAE 0%, #238594 100%);
+}
+.popup-top::after {
+  content: ""; position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%);
+  border: 12px solid transparent; border-top-color: #238594; border-bottom: 0;
+}
+.popup-check {
+  width: 84px; height: 84px; border-radius: 50%; background: #fff;
+  margin: 0 auto 1.1rem; display: grid; place-items: center;
+}
+.popup-check svg {
+  width: 44px; height: 44px; fill: none; stroke: #2A9DAE;
+  stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.popup h3 { font-weight: 800; font-size: 1.55rem; margin: 0; color: #fff; letter-spacing: -0.01em; }
+.popup-top #customAlertMessage { margin: .55rem 0 0; font-size: .95rem; }
+.popup-close {
+  position: absolute; top: -16px; right: -16px; z-index: 2;
+  width: 40px; height: 40px; border-radius: 50%; background: #fff; color: #111;
+  border: 2px solid #2A9DAE; box-shadow: -3px 3px 0 rgba(0, 0, 0, .2);
+  font-size: 1.5rem; font-weight: 800; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .1s ease;
+}
+.popup-close:hover { transform: scale(1.08); }
+.popup-bottom { padding: 2rem 1rem; text-align: center; background: #fff; border-radius: 0 0 6px 6px; }
+.popup-btn {
+  background: #2A9DAE; color: #fff; border: 1.5px solid #238594; border-radius: 8px;
+  padding: .7rem 3.5rem; font-weight: 700; font-size: 1rem; letter-spacing: .04em;
+  box-shadow: 0 4px 14px rgba(42, 157, 174, 0.32); cursor: pointer;
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+.popup-btn:hover { background: #238594; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(42, 157, 174, 0.4); }
+
+/* Alert variation for errors / warnings */
+.popup.popup-error {
+  border-color: #dc2626;
+}
+.popup.popup-error .popup-top {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+.popup.popup-error .popup-top::after {
+  border-top-color: #dc2626;
+}
+.popup.popup-error .popup-check svg {
+  stroke: #dc2626;
+}
+.popup.popup-error .popup-close {
+  border-color: #dc2626;
+}
+.popup.popup-error .popup-btn {
+  background: #dc2626; border-color: #b91c1c;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.32);
+}
+.popup.popup-error .popup-btn:hover {
+  background: #b91c1c; box-shadow: 0 6px 18px rgba(220, 38, 38, 0.4);
+}
+
+/* Stat row cards inside customAlertMessage */
+.sync-stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  text-align: left;
+}
+.sync-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #ffffff;
+}
+.sync-stat-row b {
+  font-size: 1rem;
+  background: #ffffff;
+  color: #238594;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+}
+.sync-stat-total {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.9rem;
+  opacity: 0.92;
+  font-weight: 600;
+}
+
+@keyframes popFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* Mobile & Tablet Responsiveness */
+@media (max-width: 1024px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .side {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(15, 23, 42, 0.12);
+  }
+
+  .side.open {
+    transform: translateX(0);
+  }
+
+  .side-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 45;
+  }
+
+  header .mobile-toggle {
+    display: flex;
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .panel {
+    margin: 16px;
+    padding: 18px;
+  }
+}
+
+@media (max-width: 600px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bar .right {
+    width: 100%;
+  }
+
+  .search {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px !important;
+  }
+
+  .addbtn {
+    flex: 1;
+    min-width: 140px;
+    justify-content: center;
+  }
+
+  .refbtn,
+  .delbtn-top {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+  }
+
+  .modal-body {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 </head>
 <body>
-<aside class="side">
-  <div class="brand"><span class="logo">P</span><div><small>PROPERTY</small><strong>CRM</strong></div></div>
-  <div class="group"><i class="bi bi-pie-chart-fill"></i> CRM Dashboard <i class="bi bi-chevron-up ms-auto" style="margin-left:auto"></i></div>
+
+<aside class="side" id="sidebar">
+  <div class="brand-wrap">
+    <a href="/admin" class="brand-link" aria-label="Profilent Property CRM">
+      <img src="/image/profilent-logo.png?v=20261027-new-logo" alt="PROFILENT - NURTURING TRUST" class="brand-logo">
+      <div class="brand-crm-text" role="text" aria-label="Property CRM">
+        <span>P</span><span>R</span><span>O</span><span>P</span><span>E</span><span>R</span><span>T</span><span>Y</span>
+        <span class="crm-spacer">&nbsp;</span>
+        <span>C</span><span>R</span><span>M</span>
+      </div>
+    </a>
+  </div>
+  <div class="group"><i class="bi bi-speedometer2"></i> CRM Dashboard <i class="bi bi-chevron-up ms-auto" style="margin-left:auto"></i></div>
   <nav>
     <a href="#dashboard" data-view="dashboard"><i class="bi bi-grid-1x2-fill"></i> Overview</a>
     <a href="#all" data-view="all"><i class="bi bi-people-fill"></i> All Leads</a>
+    <a href="#upsert" data-view="upsert"><i class="bi bi-layers-fill"></i> Upsert Leads</a>
     <a href="#contact" data-view="contact"><i class="bi bi-person-lines-fill"></i> Contact Us Leads</a>
     <a href="#enquiries" data-view="enquiries"><i class="bi bi-house-heart"></i> Property Enquiries</a>
   </nav>
 </aside>
+<div class="side-backdrop" id="sideBackdrop" hidden></div>
 
 <main>
   <header>
-    <span class="home"><i class="bi bi-house-door-fill"></i></span>
+    <button type="button" class="mobile-toggle" id="menuToggle" aria-label="Toggle menu"><i class="bi bi-list"></i></button>
     <h1 id="title">Enquiries Dashboard</h1>
-    <div class="public-links">
-      <a href="/"><i class="bi bi-chat-left-text"></i> Contact Us Form</a>
-      <a href="/enquiry"><i class="bi bi-house-add"></i> Property Enquiry Form</a>
-    </div>
     <div class="admin">
+      <a href="/workflow" target="_blank" class="workflow-btn" title="View System Architecture & Flowchart"><i class="bi bi-diagram-3-fill"></i> Workflow Flowchart</a>
       <button class="logout" id="logoutBtn"><i class="bi bi-box-arrow-right"></i> Logout</button>
-      <span class="avatar"><i class="bi bi-person-fill"></i></span><div><b>Admin</b><small>Admin</small></div>
+      <span class="avatar"><i class="bi bi-person-fill"></i></span><div><b>Admin</b><small>Administrator</small></div>
     </div>
   </header>
   <div class="err" id="err" hidden>Could not load data. Check that the server and MongoDB are running, then refresh.</div>
 
   <section class="panel" id="view-dashboard">
-    <div class="integration-strip">
-      <span class="integration-icon"><i class="bi bi-whatsapp"></i></span>
-      <div class="integration-copy"><b>WhatsApp through Twilio</b><small>Contact Us submit → approved start message → questionnaire replies saved to the CRM.</small></div>
-      <div class="integration-statuses">
-        <span class="status-badge" id="twilioOutboundStatus">Checking outbound setup</span>
-        <span class="status-badge" id="twilioWebhookStatus">Checking reply webhook</span>
+    <div class="top">
+      <div><h2>Today's Enquiries</h2><p>Lead Summary</p></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button type="button" class="refbtn" id="refreshDashboardBtn" title="Refresh Overview"><i class="bi bi-arrow-clockwise"></i></button>
+        <span class="total" id="total">Total: 0</span>
       </div>
     </div>
-    <div class="top"><div><h2>Today's Enquiries</h2><p>Lead Summary</p></div><span class="total" id="total">Total: 0</span></div>
     <div class="cards" id="cards"></div>
     <div class="grid2">
       <div class="donut"><h3>Property Enquiries by BHK Preference</h3><div class="cv"><canvas id="chart"></canvas></div><p class="none" id="chartEmpty" hidden>No record found</p></div>
@@ -182,23 +1486,64 @@ header{min-height:74px;padding:16px 28px;border-bottom:1px solid #e8edf3;box-sha
 
   <section class="panel" id="view-all" hidden>
     <div class="bar"><div><h2>All Leads</h2><p>Combined records from both customer forms</p></div>
-      <div class="right"><input class="search" placeholder="Search all leads..."></div>
+      <div class="right">
+        <input class="search" placeholder="Search all leads...">
+        <button type="button" class="refbtn" id="refreshAllBtn" title="Refresh All Leads"><i class="bi bi-arrow-clockwise"></i></button>
+        <button type="button" class="delbtn-top" id="delSelectedAll" disabled title="Select leads using checkboxes to delete"><i class="bi bi-trash3"></i></button>
+      </div>
     </div>
-    <div class="tw" id="allLeadsTable"></div>
+    <div class="tw-container">
+      <div class="tw" id="allLeadsTable"></div>
+      <button type="button" class="floating-scroll-btn scroll-right" data-target="#allLeadsTable" data-dir="1" title="Scroll Right"><i class="bi bi-chevron-right"></i></button>
+      <button type="button" class="floating-scroll-btn scroll-left" data-target="#allLeadsTable" data-dir="-1" title="Scroll Left" hidden><i class="bi bi-chevron-left"></i></button>
+    </div>
+  </section>
+
+  <section class="panel" id="view-upsert" hidden>
+    <div class="bar"><div><h2>Upsert Leads</h2><p>Deduplicated & unified leads combined by phone number and email</p></div>
+      <div class="right">
+        <input class="search" placeholder="Search upsert leads...">
+        <button type="button" class="refbtn" id="refreshUpsertBtn" title="Refresh Upsert Leads"><i class="bi bi-arrow-clockwise"></i></button>
+        <button type="button" class="delbtn-top" id="delSelectedUpsert" disabled title="Select leads using checkboxes to delete"><i class="bi bi-trash3"></i></button>
+      </div>
+    </div>
+    <div class="tw-container">
+      <div class="tw" id="upsertLeadsTable"></div>
+      <button type="button" class="floating-scroll-btn scroll-right" data-target="#upsertLeadsTable" data-dir="1" title="Scroll Right"><i class="bi bi-chevron-right"></i></button>
+      <button type="button" class="floating-scroll-btn scroll-left" data-target="#upsertLeadsTable" data-dir="-1" title="Scroll Left" hidden><i class="bi bi-chevron-left"></i></button>
+    </div>
   </section>
 
   <section class="panel" id="view-contact" hidden>
     <div class="bar"><h2>Contact Us Leads</h2>
-      <div class="right"><input class="search" placeholder="Search leads..."><button class="addbtn" id="addContact"><i class="bi bi-plus-lg"></i> Add Lead</button></div>
+      <div class="right">
+        <input class="search" placeholder="Search leads...">
+        <button type="button" class="refbtn" id="refreshContactBtn" title="Refresh Contact Us Leads"><i class="bi bi-arrow-clockwise"></i></button>
+        <button type="button" class="delbtn-top" id="delSelectedContact" disabled title="Select leads using checkboxes to delete"><i class="bi bi-trash3"></i></button>
+        <button class="addbtn" id="addContact"><i class="bi bi-plus-lg"></i> Add Lead</button>
+      </div>
     </div>
-    <div class="tw" id="contactTable"></div>
+    <div class="tw-container">
+      <div class="tw" id="contactTable"></div>
+      <button type="button" class="floating-scroll-btn scroll-right" data-target="#contactTable" data-dir="1" title="Scroll Right"><i class="bi bi-chevron-right"></i></button>
+      <button type="button" class="floating-scroll-btn scroll-left" data-target="#contactTable" data-dir="-1" title="Scroll Left" hidden><i class="bi bi-chevron-left"></i></button>
+    </div>
   </section>
 
   <section class="panel" id="view-enquiries" hidden>
     <div class="bar"><h2>Property Enquiries</h2>
-      <div class="right"><input class="search" placeholder="Search leads..."><button class="addbtn" id="addEnquiry"><i class="bi bi-plus-lg"></i> Add Lead</button></div>
+      <div class="right">
+        <input class="search" placeholder="Search leads...">
+        <button type="button" class="refbtn" id="refreshEnquiryBtn" title="Refresh Property Enquiries"><i class="bi bi-arrow-clockwise"></i></button>
+        <button type="button" class="delbtn-top" id="delSelectedEnquiry" disabled title="Select leads using checkboxes to delete"><i class="bi bi-trash3"></i></button>
+        <button class="addbtn" id="addEnquiry"><i class="bi bi-plus-lg"></i> Add Lead</button>
+      </div>
     </div>
-    <div class="tw" id="enqTable"></div>
+    <div class="tw-container">
+      <div class="tw" id="enqTable"></div>
+      <button type="button" class="floating-scroll-btn scroll-right" data-target="#enqTable" data-dir="1" title="Scroll Right"><i class="bi bi-chevron-right"></i></button>
+      <button type="button" class="floating-scroll-btn scroll-left" data-target="#enqTable" data-dir="-1" title="Scroll Left" hidden><i class="bi bi-chevron-left"></i></button>
+    </div>
   </section>
 </main>
 
@@ -218,10 +1563,9 @@ header{min-height:74px;padding:16px 28px;border-bottom:1px solid #e8edf3;box-sha
 <div class="confirm-overlay" id="confirmOverlay" hidden>
   <section class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
     <div class="confirm-art" aria-hidden="true">
-      <span class="confirm-spark one">✦</span><span class="confirm-spark two">✦</span>
-      <div class="confirm-mail"><span class="confirm-flap"></span><span class="confirm-question">?</span></div>
+      <div class="confirm-mail"><i class="bi bi-trash3-fill"></i></div>
     </div>
-    <div class="confirm-copy"><h3 id="confirmTitle">HEY! ARE YOU SURE?</h3><p id="confirmMessage">This action cannot be undone.</p></div>
+    <div class="confirm-copy"><h3 id="confirmTitle">Confirm Delete</h3><p id="confirmMessage">Are you sure you want to delete this lead? This action cannot be undone.</p></div>
     <div class="confirm-actions">
       <button type="button" id="confirmCancel" class="confirm-cancel">Cancel</button>
       <button type="button" id="confirmAccept" class="confirm-delete">Delete lead</button>
@@ -229,11 +1573,43 @@ header{min-height:74px;padding:16px 28px;border-bottom:1px solid #e8edf3;box-sha
   </section>
 </div>
 
+<!-- Custom Alert Popup (Exact Match to Contact Us Form) -->
+<div class="popup-overlay" id="customAlertPopup" hidden>
+  <div class="popup" role="dialog" aria-modal="true" aria-labelledby="customAlertTitle">
+    <button type="button" class="popup-close" id="customAlertClose" aria-label="Close">&times;</button>
+    <div class="popup-top">
+      <div class="popup-check" id="customAlertCheck">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </div>
+      <h3 id="customAlertTitle">Thank You!</h3>
+      <div id="customAlertMessage"></div>
+    </div>
+    <div class="popup-bottom">
+      <button type="button" class="popup-btn" id="customAlertOk">OK</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt = iso => new Date(iso).toLocaleString("en-IN", {timeZone:"Asia/Kolkata", dateStyle:"medium", timeStyle:"short"});
+
+// Mobile Sidebar Toggle
+const sidebar = $("#sidebar");
+const sideBackdrop = $("#sideBackdrop");
+const menuToggle = $("#menuToggle");
+if (menuToggle) {
+  menuToggle.addEventListener("click", () => {
+    sidebar.classList.toggle("open");
+    sideBackdrop.hidden = !sidebar.classList.contains("open");
+  });
+  sideBackdrop.addEventListener("click", () => {
+    sidebar.classList.remove("open");
+    sideBackdrop.hidden = true;
+  });
+}
 
 async function api(path, opts) {
   const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
@@ -248,24 +1624,36 @@ $("#logoutBtn").addEventListener("click", async () => {
   location.href = "/admin/login";
 });
 
-const VIEWS = {dashboard:"CRM Overview", all:"All Leads", contact:"Contact Us Leads", enquiries:"Property Enquiries"};
+const VIEWS = {dashboard:"CRM Overview", all:"All Leads", upsert:"Upsert Leads", contact:"Contact Us Leads", enquiries:"Property Enquiries"};
+let routeInitialized = false;
 function route() {
-  const v = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : "dashboard";
+  const hashKey = location.hash.slice(1);
+  const v = VIEWS[hashKey] ? hashKey : "dashboard";
   for (const k in VIEWS) {
     $("#view-" + k).hidden = k !== v;
     document.querySelector(`nav a[data-view=${k}]`).classList.toggle("on", k === v);
   }
   $("#title").textContent = VIEWS[v];
+  if (window.innerWidth <= 900) {
+    sidebar.classList.remove("open");
+    sideBackdrop.hidden = true;
+  }
+  setTimeout(updateAllTableScrollIndicators, 60);
+  if (routeInitialized && typeof refreshSection === "function") {
+    refreshSection(v);
+  }
 }
-addEventListener("hashchange", route); route();
+addEventListener("hashchange", route);
+route();
+routeInitialized = true;
 
 const CARDS = [
-  ["new_today","New Today","bi-exclamation-circle-fill","#ffe0e4","#f0466a"],
-  ["contacts_total","Contact Us Leads","bi-telephone-fill","#ffe4c8","#ff8a5c"],
-  ["enquiries_total","Property Enquiries","bi-house-fill","#fdfcc4","#e6cf20"],
-  ["immediate","Buying Within 1 Month","bi-lightning-charge-fill","#dcfbe3","#4cc38a"],
-  ["cash","Cash Buyers","bi-cash-coin","#e4e6fd","#6f74f0"],
-  ["high_budget","Budget 1 Cr+","bi-gem","#e8d8fb","#9b7cf0"],
+  ["new_today","New Today","bi-exclamation-circle-fill","#fff1f2","#e11d48"],
+  ["contacts_total","Contact Us Leads","bi-telephone-fill","#fff7ed","#ea580c"],
+  ["enquiries_total","Property Enquiries","bi-house-fill","#fefce8","#ca8a04"],
+  ["immediate","Buying Within 1 Month","bi-lightning-charge-fill","#ecfdf5","#059669"],
+  ["cash","Cash Buyers","bi-cash-coin","#f0fdfa","#0d9488"],
+  ["high_budget","Budget 1 Cr+","bi-gem","#f5f3ff","#7c3aed"],
 ];
 
 const OPTIONS = {
@@ -275,25 +1663,79 @@ const OPTIONS = {
   bhk_preference: ["1 RK","1 BHK","2 BHK","2.5 BHK","3 BHK","3.5 BHK","4 BHK","5 BHK+","Villa","Penthouse"],
 };
 
+function renderLeadBadge(r) {
+  const isHot = r.lead_rating === "Hot"
+    || ["Immediately", "Within 1 Month"].includes(r.planning_to_buy)
+    || (r.budget_range && (r.budget_range.includes("1 crore") || r.budget_range.includes("Above 2 crore")))
+    || (r.payment_option === "Full Cash Payment");
+
+  let ratingBadge = "";
+  const aiInfo = r.ai_analysis ? ` · AI: ${esc(r.ai_analysis)}` : "";
+  const scoreInfo = r.lead_score !== undefined && r.lead_score !== null ? ` (Score: ${r.lead_score}/100)` : "";
+  if (isHot) {
+    ratingBadge = `<span class="badge-hot" title="Hot Lead${scoreInfo}${aiInfo}"><i class="bi bi-fire"></i> Hot Lead</span>`;
+  } else if (r.lead_rating === "Warm" || ["Within 3 Months", "Within 6 Months"].includes(r.planning_to_buy)) {
+    ratingBadge = `<span class="badge-warm" title="Warm Lead${scoreInfo}${aiInfo}">Warm Lead</span>`;
+  } else {
+    ratingBadge = `<span class="badge-cold" title="Cold Lead${scoreInfo}${aiInfo}">Cold</span>`;
+  }
+
+  let zohoBadge = "";
+  if (isHot && (r.zoho_lead_id || r.zoho_sync_status === "synced")) {
+    zohoBadge = `<span class="badge-zoho" title="Saved in Admin & Synced to Zoho CRM (ID: ${esc(r.zoho_lead_id || '')})"><i class="bi bi-cloud-check-fill"></i> Zoho</span>`;
+  } else if (isHot) {
+    zohoBadge = '<span class="badge-sync-pending" title="Saved in Admin. Hot lead queued for automatic Zoho sync"><i class="bi bi-hourglass-split"></i> Syncing</span>';
+  } else if (r.zoho_sync_status === "skipped_invalid") {
+    zohoBadge = `<span class="badge-cold" title="Validation failed: ${esc(r.zoho_sync_reason || '')}">Invalid</span>`;
+  } else {
+    zohoBadge = '<span class="badge-cold" title="Saved in Admin. Filtered from Zoho CRM (Only Hot leads sync to Zoho)">Filtered</span>';
+  }
+
+  return `<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">${ratingBadge} ${zohoBadge}</div>`;
+}
+
+function renderContactInfo(email, phone) {
+  const e = email ? esc(email) : "-";
+  const p = phone ? esc(phone) : "-";
+  return `<div class="c-info"><span class="c-mail" title="${e}"><i class="bi bi-envelope"></i> ${e}</span><span class="c-tel"><i class="bi bi-telephone"></i> ${p}</span></div>`;
+}
+
 const ENTITIES = {
   contact: {
     api: "/api/admin/contacts",
     title: "Contact Us Lead",
-    columns: [["Date", r => fmt(r.created_at)], ["Full Name", r => r.full_name], ["Email", r => r.email],
-              ["Contact Number", r => r.contact_number]],
+    columns: [
+      ["Date", r => fmt(r.created_at)],
+      ["First Name", r => r.first_name || (r.full_name ? r.full_name.split(" ")[0] : "")],
+      ["Last Name", r => r.last_name || (r.full_name ? r.full_name.split(" ").slice(1).join(" ") : "")],
+      ["Email & Phone", r => renderContactInfo(r.email, r.contact_number || r.mobile_number)],
+      ["Requirement", r => r.requirement || "-", "wrap"],
+      ["Quality / Zoho", r => renderLeadBadge(r)]
+    ],
     fields: [
-      {name:"full_name", label:"Full Name", type:"text", required:true},
+      {name:"first_name", label:"First Name", type:"text", required:true},
+      {name:"last_name", label:"Last Name", type:"text", required:false},
       {name:"email", label:"Email", type:"email", required:true},
-      {name:"contact_number", label:"Contact Number", type:"tel", required:true, full:true, placeholder:"+91 98765 43210", inputmode:"tel", autocomplete:"tel"},
+      {name:"contact_number", label:"Mobile Number", type:"tel", required:true},
+      {name:"requirement", label:"Requirement / Query", type:"textarea", required:false, full:true},
     ],
   },
   enquiry: {
     api: "/api/admin/enquiries",
     title: "Property Enquiry",
-    columns: [["Date", r => fmt(r.created_at)], ["Name", r => `${r.first_name} ${r.last_name || ""}`.trim()],
-              ["Email", r => r.email], ["Mobile Number", r => r.mobile_number], ["Location", r => r.location_preference],
-              ["Planning to Buy", r => r.planning_to_buy], ["Budget Range", r => r.budget_range],
-              ["Payment Option", r => r.payment_option], ["BHK", r => r.bhk_preference], ["Remarks / Requirements", r => r.remarks_requirements || r.remarks || "-", "wrap"]],
+    columns: [
+      ["Date", r => fmt(r.created_at)],
+      ["First Name", r => r.first_name || (r.full_name ? r.full_name.split(" ")[0] : "")],
+      ["Last Name", r => r.last_name || (r.full_name ? r.full_name.split(" ").slice(1).join(" ") : "")],
+      ["Email & Phone", r => renderContactInfo(r.email, r.mobile_number || r.contact_number)],
+      ["Location", r => r.location_preference],
+      ["Planning to Buy", r => r.planning_to_buy],
+      ["Budget Range", r => r.budget_range],
+      ["Payment Option", r => r.payment_option],
+      ["BHK", r => r.bhk_preference],
+      ["Requirement", r => r.requirement || r.remarks_requirements || r.remarks || "-", "wrap"],
+      ["Quality / Zoho", r => renderLeadBadge(r)]
+    ],
     fields: [
       {name:"first_name", label:"First Name", type:"text", required:true},
       {name:"last_name", label:"Last Name", type:"text", required:false},
@@ -304,24 +1746,26 @@ const ENTITIES = {
       {name:"budget_range", label:"Budget Range", type:"select", options:OPTIONS.budget_range, required:true},
       {name:"payment_option", label:"Payment Option", type:"select", options:OPTIONS.payment_option, required:true},
       {name:"bhk_preference", label:"BHK Preference", type:"select", options:OPTIONS.bhk_preference, required:true},
-      {name:"remarks_requirements", label:"Remarks / Requirements", type:"textarea", required:false, full:true},
+      {name:"requirement", label:"Requirement / Remarks", type:"textarea", required:false, full:true},
     ],
   },
 };
 
-let CACHE = { contact: [], enquiry: [] };
+let CACHE = { contact: [], enquiry: [], upsert: [] };
 
 function table(sel, entityKey, rows) {
   const cols = ENTITIES[entityKey].columns;
   $(sel).innerHTML = rows.length
-    ? `<table><thead><tr><th>#</th>${cols.map(c => `<th>${c[0]}</th>`).join("")}<th>Actions</th></tr></thead><tbody>` +
-      rows.map((r, i) => `<tr data-id="${r.id}"><td>${i + 1}</td>${cols.map(c => `<td class="${c[2] || ""}">${esc(c[1](r))}</td>`).join("")}` +
+    ? `<table><thead><tr><th class="col-cb"><input type="checkbox" class="cb-lead select-all" data-entity="${entityKey}" title="Select All"></th><th>#</th>${cols.map(c => `<th>${c[0]}</th>`).join("")}<th>Actions</th></tr></thead><tbody>` +
+      rows.map((r, i) => `<tr data-id="${r.id}"><td class="col-cb"><input type="checkbox" class="cb-lead row-cb" data-entity="${entityKey}" data-id="${r.id}"></td><td>${i + 1}</td>${cols.map(c => `<td class="${c[2] || ""}">${c[0].includes("Quality") || c[0].includes("Zoho") || c[0].includes("Email") || c[0].includes("Phone") ? c[1](r) : esc(c[1](r))}</td>`).join("")}` +
         `<td><div class="actions">
            <button type="button" class="iconbtn edit-btn" data-entity="${entityKey}" data-id="${r.id}" title="Edit"><i class="bi bi-pencil"></i></button>
            <button type="button" class="iconbtn danger del-btn" data-entity="${entityKey}" data-id="${r.id}" title="Delete"><i class="bi bi-trash3"></i></button>
          </div></td></tr>`).join("") +
       "</tbody></table>"
     : '<p class="none">No record found</p>';
+  updateDeleteButtons();
+  setTimeout(updateAllTableScrollIndicators, 60);
 }
 function latest(sel, rows, name, detail) {
   $(sel).innerHTML = rows.length
@@ -330,18 +1774,112 @@ function latest(sel, rows, name, detail) {
 }
 function allLeadsTable(contacts, enquiries) {
   const rows = [
-    ...contacts.map(r => ({...r, source:"Contact Us", name:r.full_name, phone:r.contact_number, summary:r.whatsapp_opt_in ? "WhatsApp questionnaire opted in" : "Contact form submission", target:"#contact", targetLabel:"Contact lead"})),
-    ...enquiries.map(r => ({...r, source:"Property Enquiry", name:`${r.first_name} ${r.last_name || ""}`.trim(), phone:r.mobile_number, summary:`${r.location_preference} · ${r.budget_range} · ${r.bhk_preference}`, target:"#enquiries", targetLabel:"Property enquiry"})),
+    ...contacts.map(r => {
+      const fn = r.first_name || (r.full_name ? r.full_name.split(" ")[0] : "");
+      const ln = r.last_name || (r.full_name ? r.full_name.split(" ").slice(1).join(" ") : "");
+      const req = r.requirement ? `Query: ${r.requirement}` : (r.whatsapp_opt_in ? "WhatsApp questionnaire opted in" : "Contact form submission");
+      return {
+        ...r,
+        source: "Contact Us",
+        first_name: fn,
+        last_name: ln,
+        name: `${fn} ${ln}`.trim() || r.full_name || "Contact Lead",
+        phone: r.contact_number,
+        summary: req,
+        target: "#contact",
+        targetLabel: "Contact lead"
+      };
+    }),
+    ...enquiries.map(r => {
+      const fn = r.first_name || "";
+      const ln = r.last_name || "";
+      const reqPart = r.requirement || r.remarks_requirements || "";
+      const summary = `${r.location_preference} · ${r.budget_range} · ${r.bhk_preference}${reqPart ? ' · ' + reqPart : ''}`;
+      return {
+        ...r,
+        source: "Property Enquiry",
+        first_name: fn,
+        last_name: ln,
+        name: `${fn} ${ln}`.trim() || r.full_name || "Property Lead",
+        phone: r.mobile_number,
+        summary: summary,
+        target: "#enquiries",
+        targetLabel: "Property enquiry"
+      };
+    }),
   ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   $("#allLeadsTable").innerHTML = rows.length
-    ? `<table><thead><tr><th>#</th><th>Source</th><th>Date</th><th>Name</th><th>Email</th><th>Phone</th><th>Details</th><th>Open</th></tr></thead><tbody>` +
-      rows.map((r,i) => `<tr><td>${i+1}</td><td>${esc(r.source)}</td><td>${fmt(r.created_at)}</td><td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.phone)}</td><td class="wrap">${esc(r.summary)}</td><td><a class="view-all" href="${r.target}">${r.targetLabel} →</a></td></tr>`).join("") +
+    ? `<table><thead><tr><th class="col-cb"><input type="checkbox" class="cb-lead select-all" data-entity="all" title="Select All"></th><th>#</th><th>Source</th><th>Date</th><th>First Name</th><th>Last Name</th><th>Email & Phone</th><th>Requirement & Details</th><th>Quality & Zoho</th><th>Open</th></tr></thead><tbody>` +
+      rows.map((r,i) => `<tr data-id="${r.id}"><td class="col-cb"><input type="checkbox" class="cb-lead row-cb" data-entity="${r.source === 'Contact Us' ? 'contact' : 'enquiry'}" data-id="${r.id}"></td><td>${i+1}</td><td>${esc(r.source)}</td><td>${fmt(r.created_at)}</td><td>${esc(r.first_name)}</td><td>${esc(r.last_name)}</td><td>${renderContactInfo(r.email, r.phone)}</td><td class="wrap">${esc(r.summary)}</td><td>${renderLeadBadge(r)}</td><td><a class="view-all" href="${r.target}">${r.targetLabel} →</a></td></tr>`).join("") +
       `</tbody></table>`
     : '<p class="none">No records found in either form.</p>';
+  updateDeleteButtons();
+  setTimeout(updateAllTableScrollIndicators, 60);
+}
+
+function renderSourceBadges(sources, count) {
+  const countBadge = count > 1
+    ? `<span class="badge-count multi" title="${count} total submissions merged"><i class="bi bi-layers-fill"></i> ${count} Submissions</span>`
+    : `<span class="badge-count">1 Submission</span>`;
+  const srcBadges = (sources || []).map(s => {
+    const isEnq = s.includes("Enquiry");
+    return `<span class="badge-src ${isEnq ? 'enquiry' : ''}"><i class="bi ${isEnq ? 'bi-house-heart' : 'bi-person-lines-fill'}"></i> ${esc(s)}</span>`;
+  }).join(" ");
+  return `<div class="badge-sources">${srcBadges} ${countBadge}</div>`;
+}
+
+function upsertLeadsTable(rows) {
+  $("#upsertLeadsTable").innerHTML = rows.length
+    ? `<table><thead><tr>
+         <th class="col-cb"><input type="checkbox" class="cb-lead select-all" data-entity="upsert" title="Select All"></th>
+         <th>#</th>
+         <th>Sources & Submissions</th>
+         <th>Latest Date</th>
+         <th>First Name</th>
+         <th>Last Name</th>
+         <th>Email & Phone</th>
+         <th>Property Preferences</th>
+         <th>Requirements / Queries</th>
+         <th>Quality / Zoho</th>
+         <th>Actions</th>
+       </tr></thead><tbody>` +
+      rows.map((r, i) => `
+        <tr data-id="${esc(r.id)}">
+          <td class="col-cb"><input type="checkbox" class="cb-lead row-cb" data-entity="upsert" data-id="${esc(r.id)}"></td>
+          <td>${i + 1}</td>
+          <td>${renderSourceBadges(r.sources || [], r.submission_count || 1)}</td>
+          <td>${fmt(r.created_at)}</td>
+          <td>${esc(r.first_name)}</td>
+          <td>${esc(r.last_name)}</td>
+          <td>${renderContactInfo(r.email, r.phone)}</td>
+          <td class="wrap">${esc(r.property_summary || "-")}</td>
+          <td class="wrap" title="${esc(r.requirements_history || r.requirement || '-')}">${esc(r.requirement || "-")}</td>
+          <td>${renderLeadBadge(r)}</td>
+          <td>
+            <div class="actions">
+              <button type="button" class="iconbtn danger del-upsert-btn" data-id="${esc(r.id)}" title="Delete Lead (removes all ${r.submission_count || 1} underlying records)"><i class="bi bi-trash3"></i></button>
+            </div>
+          </td>
+        </tr>`).join("") +
+      `</tbody></table>`
+    : '<p class="none">No deduplicated leads found.</p>';
+  updateDeleteButtons();
+  setTimeout(updateAllTableScrollIndicators, 60);
+}
+
+async function loadUpsertLeads() {
+  try {
+    const data = await api("/api/admin/upsert-leads");
+    CACHE.upsert = data;
+    upsertLeadsTable(data);
+    $("#err").hidden = true;
+  } catch (err) {
+    console.error("Failed to load upsert leads from API:", err);
+  }
 }
 
 let chart;
-const PALETTE = ["#5b5ff2","#f0466a","#ff8a5c","#4cc38a","#e6cf20","#9b7cf0","#3aa8c1","#a3a3a3","#c2185b","#7cb342"];
+const PALETTE = ["#2A9DAE","#f0466a","#ff8a5c","#4cc38a","#e6cf20","#9b7cf0","#3aa8c1","#a3a3a3","#c2185b","#7cb342"];
 function donut(data) {
   const labels = Object.keys(data);
   $("#chartEmpty").hidden = labels.length > 0;
@@ -355,145 +1893,495 @@ function donut(data) {
 }
 
 let loadingDashboard = false;
-async function load() {
+async function refreshDashboard() {
   if (loadingDashboard) return;
   loadingDashboard = true;
   try {
-    const [s, c, e] = await Promise.all([api("/api/admin/summary"), api("/api/admin/contacts"), api("/api/admin/enquiries")]);
+    const [s, c, e] = await Promise.all([
+      api("/api/admin/summary"),
+      api(ENTITIES.contact.api),
+      api(ENTITIES.enquiry.api),
+    ]);
+    CACHE.contact = c;
+    CACHE.enquiry = e;
+    $("#total").textContent = `Total: ${s.total}`;
+    $("#cards").innerHTML = CARDS.map(([k, label, ic, bg, fg]) => `
+      <div class="card" style="--bg:${bg};--ic:${fg}">
+        <div class="r"><span class="ic"><i class="bi ${ic}"></i></span><b>${s.cards[k] ?? 0}</b></div>
+        <p>${label}</p>
+      </div>`).join("");
+    donut(s.bhk || {});
+    latest("#latestContact", c || [], r => r.full_name, r => r.whatsapp_opt_in ? "WhatsApp questionnaire opted in" : "Contact form submission");
+    latest("#latestEnq", e || [], r => `${r.first_name} ${r.last_name || ""}`.trim(),
+      r => `${r.location_preference} · ${r.budget_range}`);
     $("#err").hidden = true;
-    CACHE.contact = c; CACHE.enquiry = e;
-    $("#total").textContent = "Total: " + s.total;
-    const wa = s.whatsapp || {};
-    const outboundStatus = $("#twilioOutboundStatus");
-    outboundStatus.textContent = wa.outbound_configured ? "Sender/template fields set" : "Outbound setup needed";
-    outboundStatus.title = wa.missing_outbound_settings?.length ? `Missing: ${wa.missing_outbound_settings.join(", ")}` : "Credentials and a start-template SID are present; confirm sender and template approval in Twilio.";
-    outboundStatus.classList.toggle("ready", Boolean(wa.outbound_configured));
-    const webhookStatus = $("#twilioWebhookStatus");
-    webhookStatus.textContent = wa.inbound_webhook_configured ? "Reply endpoint URL ready" : "Reply URL setup needed";
-    webhookStatus.title = wa.inbound_webhook_url || "Set PUBLIC_BASE_URL in the server .env file.";
-    webhookStatus.classList.toggle("ready", Boolean(wa.inbound_webhook_configured));
-    $("#cards").innerHTML = CARDS.map(([k, label, icon, bg, ic]) =>
-      `<div class="card" style="--bg:${bg};--ic:${ic}"><div class="r"><span class="ic"><i class="bi ${icon}"></i></span><b>${s.cards[k]}</b></div><p>${label}</p></div>`).join("");
-    donut(s.bhk);
-    latest("#latestContact", c, r => r.full_name, r => r.whatsapp_opt_in ? "WhatsApp questionnaire opted in" : "Contact form submission");
-    latest("#latestEnq", e, r => `${r.first_name} ${r.last_name || ""}`.trim(), r => `${r.location_preference} · ${r.budget_range}`);
-    table("#contactTable", "contact", c);
-    table("#enqTable", "enquiry", e);
-    allLeadsTable(c, e);
   } catch (err) {
-    if (err.message !== "unauthenticated") $("#err").hidden = false;
+    console.error(err);
+    $("#err").hidden = false;
   } finally {
     loadingDashboard = false;
   }
 }
-document.querySelectorAll(".search").forEach(inp => inp.addEventListener("input", () => {
-  const q = inp.value.toLowerCase();
-  inp.closest(".panel").querySelectorAll("tbody tr").forEach(tr => tr.hidden = !tr.textContent.toLowerCase().includes(q));
-}));
 
-// ---------------------------------------------------------------- Add / Edit / Delete
-const overlay = $("#modalOverlay"), modalBody = $("#modalBody"), modalForm = $("#modalForm"), modalTitle = $("#modalTitle"), saveBtn = $("#modalSave");
-let modalCtx = null; // { entity, id | null }
-
-function fieldHtml(f, value) {
-  const req = f.required ? "required" : "";
-  const inputAttrs = [f.placeholder ? `placeholder="${esc(f.placeholder)}"` : "", f.inputmode ? `inputmode="${esc(f.inputmode)}"` : "", f.autocomplete ? `autocomplete="${esc(f.autocomplete)}"` : ""].filter(Boolean).join(" ");
-  const val = esc(value ?? "");
-  if (f.type === "select") {
-    return `<select name="${f.name}" ${req}><option value="">Select an option</option>` +
-      f.options.map(o => `<option value="${esc(o)}" ${o === value ? "selected" : ""}>${esc(o)}</option>`).join("") + `</select>`;
+async function loadTable(entityKey, sel) {
+  try {
+    const data = await api(ENTITIES[entityKey].api);
+    CACHE[entityKey] = data;
+    table(sel, entityKey, data);
+    $("#err").hidden = true;
+  } catch (err) {
+    console.error(err);
+    $("#err").hidden = false;
   }
-  if (f.type === "textarea") return `<textarea name="${f.name}" ${req}>${val}</textarea>`;
-  return `<input type="${f.type}" name="${f.name}" value="${val}" ${req} ${inputAttrs}>`;
 }
 
-function openModal(entityKey, id) {
-  const entity = ENTITIES[entityKey];
-  const row = id ? CACHE[entityKey].find(r => r.id === id) : null;
-  modalCtx = { entity: entityKey, id: id || null };
-  modalTitle.textContent = id ? `Edit ${entity.title}` : `Add ${entity.title}`;
-  modalBody.innerHTML = entity.fields.map(f => `
-    <div class="mfield ${f.full ? "full" : ""}">
-      <label>${f.label}${f.required ? " *" : ""}</label>
-      ${fieldHtml(f, row ? row[f.name] : "")}
-    </div>`).join("");
-  saveBtn.textContent = "Save";
-  saveBtn.disabled = false;
-  overlay.hidden = false;
+async function loadAllLeads() {
+  try {
+    const [c, e] = await Promise.all([api(ENTITIES.contact.api), api(ENTITIES.enquiry.api)]);
+    CACHE.contact = c; CACHE.enquiry = e;
+    allLeadsTable(c, e);
+    $("#err").hidden = true;
+  } catch (err) {
+    console.error(err);
+    $("#err").hidden = false;
+  }
 }
-function closeModal() { overlay.hidden = true; modalCtx = null; }
+
+function search(entityKey, sel, q) {
+  q = q.toLowerCase();
+  const rows = (CACHE[entityKey] || []).filter(r => JSON.stringify(r).toLowerCase().includes(q));
+  table(sel, entityKey, rows);
+}
+
+$("#view-contact .search").addEventListener("input", e => search("contact", "#contactTable", e.target.value));
+$("#view-enquiries .search").addEventListener("input", e => search("enquiry", "#enqTable", e.target.value));
+$("#view-all .search").addEventListener("input", e => {
+  const q = e.target.value.toLowerCase();
+  const c = CACHE.contact.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+  const enq = CACHE.enquiry.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+  allLeadsTable(c, enq);
+});
+$("#view-upsert .search")?.addEventListener("input", e => {
+  const q = e.target.value.toLowerCase();
+  const rows = (CACHE.upsert || []).filter(r => JSON.stringify(r).toLowerCase().includes(q));
+  upsertLeadsTable(rows);
+});
+
+// Refresh Functionality for every leads section
+async function refreshSection(viewKey, btn = null) {
+  if (btn) btn.classList.add("refreshing");
+  try {
+    if (viewKey === "dashboard") {
+      await refreshDashboard();
+    } else if (viewKey === "all") {
+      await loadAllLeads();
+      const q = $("#view-all .search")?.value?.trim();
+      if (q) {
+        const c = (CACHE.contact || []).filter(r => JSON.stringify(r).toLowerCase().includes(q.toLowerCase()));
+        const enq = (CACHE.enquiry || []).filter(r => JSON.stringify(r).toLowerCase().includes(q.toLowerCase()));
+        allLeadsTable(c, enq);
+      }
+    } else if (viewKey === "upsert") {
+      await loadUpsertLeads();
+      const q = $("#view-upsert .search")?.value?.trim();
+      if (q) {
+        const rows = (CACHE.upsert || []).filter(r => JSON.stringify(r).toLowerCase().includes(q.toLowerCase()));
+        upsertLeadsTable(rows);
+      }
+    } else if (viewKey === "contact") {
+      await loadTable("contact", "#contactTable");
+      const q = $("#view-contact .search")?.value?.trim();
+      if (q) search("contact", "#contactTable", q);
+    } else if (viewKey === "enquiries" || viewKey === "enquiry") {
+      await loadTable("enquiry", "#enqTable");
+      const q = $("#view-enquiries .search")?.value?.trim();
+      if (q) search("enquiry", "#enqTable", q);
+    }
+    updateAllTableScrollIndicators();
+  } catch (err) {
+    console.error(`Error refreshing ${viewKey}:`, err);
+  } finally {
+    if (btn) {
+      setTimeout(() => btn.classList.remove("refreshing"), 400);
+    }
+  }
+}
+
+// Bind Refresh Buttons
+$("#refreshDashboardBtn")?.addEventListener("click", e => refreshSection("dashboard", e.currentTarget));
+$("#refreshAllBtn")?.addEventListener("click", e => refreshSection("all", e.currentTarget));
+$("#refreshUpsertBtn")?.addEventListener("click", e => refreshSection("upsert", e.currentTarget));
+$("#refreshContactBtn")?.addEventListener("click", e => refreshSection("contact", e.currentTarget));
+$("#refreshEnquiryBtn")?.addEventListener("click", e => refreshSection("enquiries", e.currentTarget));
+
+// Modal: Add / Edit
+let activeEntity = null;
+let editingId = null;
+
+function renderModalFields(entityKey, record = {}) {
+  const fields = ENTITIES[entityKey].fields;
+  $("#modalBody").innerHTML = fields.map(f => {
+    const cls = f.full ? "mfield full" : "mfield";
+    const req = f.required ? "required" : "";
+    const val = esc(record[f.name] ?? (f.name === "contact_number" ? (record.mobile_number || "") : (f.name === "mobile_number" ? (record.contact_number || "") : "")) ?? "");
+    let input;
+    if (f.type === "select") {
+      input = `<select name="${f.name}" ${req}>${f.options.map(o => `<option value="${esc(o)}" ${val===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`;
+    } else if (f.type === "textarea") {
+      input = `<textarea name="${f.name}" ${req}>${val}</textarea>`;
+    } else {
+      input = `<input type="${f.type}" name="${f.name}" value="${val}" ${req}>`;
+    }
+    return `<div class="${cls}"><label>${f.label}</label>${input}</div>`;
+  }).join("");
+}
+
+function openModal(entityKey, id = null) {
+  activeEntity = entityKey;
+  editingId = id;
+  const isEdit = Boolean(id);
+  $("#modalTitle").textContent = `${isEdit ? "Edit" : "Add"} ${ENTITIES[entityKey].title}`;
+  const record = isEdit ? (CACHE[entityKey] || []).find(r => r.id === id) || {} : {};
+  renderModalFields(entityKey, record);
+  $("#modalOverlay").hidden = false;
+}
+function closeModal() {
+  $("#modalOverlay").hidden = true;
+  activeEntity = null;
+  editingId = null;
+}
 $("#modalClose").addEventListener("click", closeModal);
 $("#modalCancel").addEventListener("click", closeModal);
-overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeModal(); });
+$("#modalOverlay").addEventListener("click", e => { if (e.target === $("#modalOverlay")) closeModal(); });
 
-const confirmOverlay = $("#confirmOverlay");
-let resolveConfirm = null;
-function askConfirm(message) {
-  $("#confirmMessage").textContent = message;
-  confirmOverlay.hidden = false;
-  $("#confirmCancel").focus();
-  return new Promise(resolve => { resolveConfirm = resolve; });
-}
-function finishConfirm(accepted) {
-  confirmOverlay.hidden = true;
-  if (resolveConfirm) resolveConfirm(accepted);
-  resolveConfirm = null;
-}
-$("#confirmCancel").addEventListener("click", () => finishConfirm(false));
-$("#confirmAccept").addEventListener("click", () => finishConfirm(true));
-confirmOverlay.addEventListener("click", e => { if (e.target === confirmOverlay) finishConfirm(false); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !confirmOverlay.hidden) finishConfirm(false); });
+$("#addContact").addEventListener("click", () => openModal("contact"));
+$("#addEnquiry").addEventListener("click", () => openModal("enquiry"));
 
-$("#addContact").addEventListener("click", () => openModal("contact", null));
-$("#addEnquiry").addEventListener("click", () => openModal("enquiry", null));
-
-document.addEventListener("click", (e) => {
-  const editBtn = e.target.closest(".edit-btn");
-  const delBtn = e.target.closest(".del-btn");
-  if (editBtn) openModal(editBtn.dataset.entity, editBtn.dataset.id);
-  if (delBtn) deleteLead(delBtn.dataset.entity, delBtn.dataset.id);
-});
-
-async function deleteLead(entityKey, id) {
-  const entity = ENTITIES[entityKey];
-  if (!await askConfirm(`Delete this ${entity.title.toLowerCase()}? This cannot be undone.`)) return;
-  try {
-    await api(`${entity.api}/${id}`, { method: "DELETE" });
-    await load();
-  } catch (err) {
-    if (err.message !== "unauthenticated") alert(err.message);
-  }
-}
-
-modalForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  document.getElementById("modalErr")?.remove();
-  const { entity: entityKey, id } = modalCtx;
-  const entity = ENTITIES[entityKey];
-  const payload = Object.fromEntries(new FormData(modalForm).entries());
-  saveBtn.disabled = true;
-  saveBtn.textContent = "Saving...";
-  try {
-    if (id) {
-      await api(`${entity.api}/${id}`, { method: "PUT", body: JSON.stringify(payload) });
-    } else {
-      await api(entity.api, { method: "POST", body: JSON.stringify(payload) });
+document.body.addEventListener("click", e => {
+  const edit = e.target.closest(".edit-btn");
+  if (edit) { openModal(edit.dataset.entity, edit.dataset.id); return; }
+  const del = e.target.closest(".del-btn");
+  if (del) { confirmDelete(del.dataset.entity, del.dataset.id); return; }
+  const delUpsert = e.target.closest(".del-upsert-btn");
+  if (delUpsert) {
+    const lead = (CACHE.upsert || []).find(x => x.id === delUpsert.dataset.id);
+    if (lead && lead.records && lead.records.length) {
+      confirmBatchDelete(lead.records);
     }
-    closeModal();
-    await load();
-  } catch (err) {
-    if (err.message === "unauthenticated") return;
-    const div = document.createElement("div");
-    div.className = "modal-err"; div.id = "modalErr"; div.textContent = err.message;
-    modalBody.prepend(div);
-    saveBtn.disabled = false;
-    saveBtn.textContent = "Save";
+    return;
   }
 });
 
-load();
-setInterval(() => { if (!document.hidden) load(); }, 60000);
+$("#modalForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const form = e.target;
+  const payload = {};
+  new FormData(form).forEach((v, k) => payload[k] = v.trim());
+  const entity = ENTITIES[activeEntity];
+  const url = editingId ? `${entity.api}/${editingId}` : entity.api;
+  const method = editingId ? "PUT" : "POST";
+
+  $("#modalSave").disabled = true;
+  try {
+    await api(url, { method, body: JSON.stringify(payload) });
+    closeModal();
+    if (activeEntity === "contact") await loadTable("contact", "#contactTable");
+    else await loadTable("enquiry", "#enqTable");
+    refreshDashboard();
+  } catch (err) {
+    showAlert({ title: "Save Failed", message: err.message, type: "error" });
+  } finally {
+    $("#modalSave").disabled = false;
+  }
+});
+
+// Lead Selection & Delete buttons state management
+function updateDeleteButtons() {
+  // 1. Contact Us Leads view
+  const cCbs = Array.from(document.querySelectorAll("#contactTable .row-cb"));
+  const cSel = cCbs.filter(cb => cb.checked);
+  const btnC = $("#delSelectedContact");
+  if (btnC) {
+    btnC.disabled = cSel.length === 0;
+    btnC.classList.toggle("active", cSel.length > 0);
+    btnC.innerHTML = `<i class="bi ${cSel.length > 0 ? 'bi-trash3-fill' : 'bi-trash3'}"></i>`;
+    btnC.title = cSel.length ? `Delete ${cSel.length} selected lead${cSel.length > 1 ? "s" : ""}` : "Select leads using checkboxes to delete";
+  }
+  const saC = $("#contactTable .select-all");
+  if (saC && cCbs.length) {
+    saC.checked = cSel.length === cCbs.length;
+    saC.indeterminate = cSel.length > 0 && cSel.length < cCbs.length;
+  }
+
+  // 2. Property Enquiries view
+  const eCbs = Array.from(document.querySelectorAll("#enqTable .row-cb"));
+  const eSel = eCbs.filter(cb => cb.checked);
+  const btnE = $("#delSelectedEnquiry");
+  if (btnE) {
+    btnE.disabled = eSel.length === 0;
+    btnE.classList.toggle("active", eSel.length > 0);
+    btnE.innerHTML = `<i class="bi ${eSel.length > 0 ? 'bi-trash3-fill' : 'bi-trash3'}"></i>`;
+    btnE.title = eSel.length ? `Delete ${eSel.length} selected lead${eSel.length > 1 ? "s" : ""}` : "Select leads using checkboxes to delete";
+  }
+  const saE = $("#enqTable .select-all");
+  if (saE && eCbs.length) {
+    saE.checked = eSel.length === eCbs.length;
+    saE.indeterminate = eSel.length > 0 && eSel.length < eCbs.length;
+  }
+
+  // 3. All Leads view
+  const aCbs = Array.from(document.querySelectorAll("#allLeadsTable .row-cb"));
+  const aSel = aCbs.filter(cb => cb.checked);
+  const btnA = $("#delSelectedAll");
+  if (btnA) {
+    btnA.disabled = aSel.length === 0;
+    btnA.classList.toggle("active", aSel.length > 0);
+    btnA.innerHTML = `<i class="bi ${aSel.length > 0 ? 'bi-trash3-fill' : 'bi-trash3'}"></i>`;
+    btnA.title = aSel.length ? `Delete ${aSel.length} selected lead${aSel.length > 1 ? "s" : ""}` : "Select leads using checkboxes to delete";
+  }
+  const saA = $("#allLeadsTable .select-all");
+  if (saA && aCbs.length) {
+    saA.checked = aSel.length === aCbs.length;
+    saA.indeterminate = aSel.length > 0 && aSel.length < aCbs.length;
+  }
+
+  // 4. Upsert Leads view
+  const uCbs = Array.from(document.querySelectorAll("#upsertLeadsTable .row-cb"));
+  const uSel = uCbs.filter(cb => cb.checked);
+  const btnU = $("#delSelectedUpsert");
+  if (btnU) {
+    btnU.disabled = uSel.length === 0;
+    btnU.classList.toggle("active", uSel.length > 0);
+    btnU.innerHTML = `<i class="bi ${uSel.length > 0 ? 'bi-trash3-fill' : 'bi-trash3'}"></i>`;
+    btnU.title = uSel.length ? `Delete ${uSel.length} selected lead${uSel.length > 1 ? "s" : ""}` : "Select leads using checkboxes to delete";
+  }
+  const saU = $("#upsertLeadsTable .select-all");
+  if (saU && uCbs.length) {
+    saU.checked = uSel.length === uCbs.length;
+    saU.indeterminate = uSel.length > 0 && uSel.length < uCbs.length;
+  }
+}
+
+document.addEventListener("change", e => {
+  if (e.target.matches(".select-all")) {
+    const tbl = e.target.closest("table");
+    if (tbl) {
+      tbl.querySelectorAll(".row-cb").forEach(cb => { cb.checked = e.target.checked; });
+      updateDeleteButtons();
+    }
+  } else if (e.target.matches(".row-cb")) {
+    updateDeleteButtons();
+  }
+});
+
+$("#delSelectedContact")?.addEventListener("click", () => {
+  const items = Array.from(document.querySelectorAll("#contactTable .row-cb:checked")).map(cb => ({
+    id: cb.dataset.id,
+    entity: "contact",
+  }));
+  confirmBatchDelete(items);
+});
+
+$("#delSelectedEnquiry")?.addEventListener("click", () => {
+  const items = Array.from(document.querySelectorAll("#enqTable .row-cb:checked")).map(cb => ({
+    id: cb.dataset.id,
+    entity: "enquiry",
+  }));
+  confirmBatchDelete(items);
+});
+
+$("#delSelectedAll")?.addEventListener("click", () => {
+  const items = Array.from(document.querySelectorAll("#allLeadsTable .row-cb:checked")).map(cb => ({
+    id: cb.dataset.id,
+    entity: cb.dataset.entity,
+  }));
+  confirmBatchDelete(items);
+});
+
+$("#delSelectedUpsert")?.addEventListener("click", () => {
+  const selectedIds = Array.from(document.querySelectorAll("#upsertLeadsTable .row-cb:checked")).map(cb => cb.dataset.id);
+  const items = [];
+  selectedIds.forEach(id => {
+    const lead = (CACHE.upsert || []).find(x => x.id === id);
+    if (lead && lead.records) {
+      items.push(...lead.records);
+    }
+  });
+  if (items.length) {
+    confirmBatchDelete(items);
+  }
+});
+
+// Delete confirmation modal
+let pendingDelete = null;
+function confirmDelete(entityKey, id) {
+  pendingDelete = { entityKey, id };
+  $("#confirmTitle").textContent = "Confirm Delete";
+  $("#confirmMessage").textContent = "Are you sure you want to delete this lead? This action cannot be undone.";
+  $("#confirmAccept").textContent = "Delete lead";
+  $("#confirmOverlay").hidden = false;
+}
+function confirmBatchDelete(items) {
+  if (!items || !items.length) return;
+  pendingDelete = { batch: true, items };
+  $("#confirmTitle").textContent = `Delete ${items.length} Lead${items.length > 1 ? "s" : ""}`;
+  $("#confirmMessage").textContent = `Are you sure you want to delete ${items.length} selected lead${items.length > 1 ? "s" : ""}? This action cannot be undone.`;
+  $("#confirmAccept").textContent = `Delete ${items.length} lead${items.length > 1 ? "s" : ""}`;
+  $("#confirmOverlay").hidden = false;
+}
+function hideConfirm() {
+  $("#confirmOverlay").hidden = true;
+  pendingDelete = null;
+}
+$("#confirmCancel").addEventListener("click", hideConfirm);
+$("#confirmOverlay").addEventListener("click", e => { if (e.target === $("#confirmOverlay")) hideConfirm(); });
+$("#confirmAccept").addEventListener("click", async () => {
+  if (!pendingDelete) return;
+  $("#confirmAccept").disabled = true;
+  try {
+    if (pendingDelete.batch) {
+      await api("/api/admin/leads/batch-delete", {
+        method: "POST",
+        body: JSON.stringify({ items: pendingDelete.items }),
+      });
+      hideConfirm();
+      await Promise.all([
+        loadTable("contact", "#contactTable"),
+        loadTable("enquiry", "#enqTable"),
+        loadAllLeads(),
+        loadUpsertLeads(),
+      ]);
+      refreshDashboard();
+      updateDeleteButtons();
+    } else {
+      const { entityKey, id } = pendingDelete;
+      await api(`${ENTITIES[entityKey].api}/${id}`, { method: "DELETE" });
+      hideConfirm();
+      if (entityKey === "contact") await loadTable("contact", "#contactTable");
+      else await loadTable("enquiry", "#enqTable");
+      loadAllLeads();
+      loadUpsertLeads();
+      refreshDashboard();
+      updateDeleteButtons();
+    }
+  } catch (err) {
+    showAlert({ title: "Delete Failed", message: err.message, type: "error" });
+  } finally {
+    $("#confirmAccept").disabled = false;
+  }
+});
+
+// Custom Alert Dialog (Exact Match to Contact Us Form Page)
+function showAlert({ title, message, type = "success", stats = null }) {
+  const overlay = $("#customAlertPopup");
+  if (!overlay) return;
+  const card = overlay.querySelector(".popup");
+  const titleEl = $("#customAlertTitle");
+  const msgEl = $("#customAlertMessage");
+  const checkEl = $("#customAlertCheck");
+
+  card.classList.toggle("popup-error", type === "error");
+  titleEl.textContent = title || (type === "error" ? "Notice" : "Success");
+
+  if (stats) {
+    msgEl.innerHTML = `
+      <div class="sync-stat-list">
+        <div class="sync-stat-row"><span>🔥 Validated Hot Leads Synced</span><b>${stats.total_synced_hot ?? 0}</b></div>
+        <div class="sync-stat-row"><span>❄️ Cold / Low Intent Leads Skipped</span><b>${stats.total_skipped_cold ?? 0}</b></div>
+        <div class="sync-stat-row"><span>⚠️ Unvalidated / Test Leads Skipped</span><b>${stats.total_skipped_invalid ?? 0}</b></div>
+      </div>
+      <div class="sync-stat-total">Total Leads Evaluated: <strong>${stats.total_evaluated ?? 0}</strong></div>
+    `;
+  } else if (typeof message === "string") {
+    msgEl.innerHTML = `<p style="margin: 0.6rem 0 0; line-height: 1.5; font-size: 0.95rem;">${esc(message)}</p>`;
+  } else {
+    msgEl.innerHTML = message || "";
+  }
+
+  if (type === "error") {
+    checkEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:#dc2626"><circle cx="12" cy="12" r="10" stroke="#dc2626" stroke-width="2.5" fill="none"/><line x1="12" y1="8" x2="12" y2="12" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/></svg>';
+  } else {
+    checkEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  }
+
+  overlay.hidden = false;
+  $("#customAlertOk")?.focus();
+}
+
+function hideAlert() {
+  const overlay = $("#customAlertPopup");
+  if (overlay) overlay.hidden = true;
+}
+
+$("#customAlertOk")?.addEventListener("click", hideAlert);
+$("#customAlertClose")?.addEventListener("click", hideAlert);
+$("#customAlertPopup")?.addEventListener("click", e => {
+  if (e.target === $("#customAlertPopup")) hideAlert();
+});
+
+// Horizontal Table Scrolling Logic (Header navigation arrows & Floating edge buttons)
+function updateTableScrollIndicators(container) {
+  if (!container) return;
+  const tw = container.querySelector(".tw");
+  const leftBtn = container.querySelector(".floating-scroll-btn.scroll-left");
+  const rightBtn = container.querySelector(".floating-scroll-btn.scroll-right");
+  if (!tw) return;
+
+  const maxScroll = tw.scrollWidth - tw.clientWidth;
+  const isOverflowing = maxScroll > 8;
+
+  if (!isOverflowing) {
+    if (leftBtn) leftBtn.hidden = true;
+    if (rightBtn) rightBtn.hidden = true;
+    return;
+  }
+
+  if (leftBtn) leftBtn.hidden = tw.scrollLeft <= 15;
+  if (rightBtn) rightBtn.hidden = tw.scrollLeft >= maxScroll - 15;
+}
+
+function updateAllTableScrollIndicators() {
+  document.querySelectorAll(".tw-container").forEach(updateTableScrollIndicators);
+}
+
+// Attach scroll listeners to tables
+function bindTableScrollListeners() {
+  document.querySelectorAll(".tw-container").forEach(container => {
+    const tw = container.querySelector(".tw");
+    if (tw && !tw._scrollBound) {
+      tw._scrollBound = true;
+      tw.addEventListener("scroll", () => updateTableScrollIndicators(container), { passive: true });
+    }
+  });
+  updateAllTableScrollIndicators();
+}
+
+window.addEventListener("resize", updateAllTableScrollIndicators, { passive: true });
+
+// Global click handler for both header arrows and floating circular buttons
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".scroll-arrow-btn, .floating-scroll-btn");
+  if (!btn) return;
+  const targetSel = btn.dataset.target;
+  const dir = parseInt(btn.dataset.dir || "1", 10);
+  const targetEl = targetSel ? document.querySelector(targetSel) : btn.closest(".tw-container")?.querySelector(".tw");
+  if (targetEl) {
+    targetEl.scrollBy({ left: dir * 340, behavior: "smooth" });
+    setTimeout(() => {
+      const c = targetEl.closest(".tw-container");
+      if (c) updateTableScrollIndicators(c);
+    }, 360);
+  }
+});
+
+// Polling interval for live sync
+refreshDashboard();
+loadTable("contact", "#contactTable");
+loadTable("enquiry", "#enqTable");
+loadAllLeads();
+loadUpsertLeads();
+setTimeout(bindTableScrollListeners, 200);
+setInterval(refreshDashboard, 15000);
 </script>
 </body>
 </html>

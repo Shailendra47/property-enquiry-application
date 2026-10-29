@@ -3,91 +3,188 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Contact Us | Your Property, Our Priority</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link href="/static/style.css?v=20261022-contact-logo" rel="stylesheet">
+  <link href="/static/style.css?v=20261028-direct-wa-app-no-alert" rel="stylesheet">
 </head>
 <body>
-  <div class="blob blob-1"></div>
-  <div class="blob blob-2"></div>
-  <div class="blob blob-3"></div>
-
   <header class="contact-navbar">
     <a class="contact-brand" href="/" aria-label="Profilent home">
-      <svg class="contact-brand-mark" viewBox="0 0 32 38" aria-hidden="true">
-        <path d="M2 2h12v34H2z" fill="#8ad8d8"></path>
-        <path d="M14 2h7a13 13 0 0 1 0 26h-7z" fill="#0bb8bd"></path>
-        <path d="M2 31h12v5H2z" fill="#bfe9e8"></path>
-      </svg>
-      <span class="contact-brand-copy">
-        <span class="contact-brand-name">PROFILENT</span>
-        <span class="contact-brand-tagline">NURTURING TRUST</span>
-      </span>
+      <img src="/image/profilent-logo.png?v=20261027-new-logo" alt="PROFILENT - NURTURING TRUST" class="contact-brand-img">
     </a>
+    <div class="contact-nav-right">
+      <a href="/enquiry" class="nav-enquiry-btn" title="Go to Property Enquiry Form">
+        <svg class="nav-btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+          <path d="M12 11h4"></path>
+          <path d="M12 16h4"></path>
+          <path d="M8 11h.01"></path>
+          <path d="M8 16h.01"></path>
+        </svg>
+        <span>Property Enquiry</span>
+        <svg class="nav-btn-arrow" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </a>
+    </div>
   </header>
 
-  <main class="contact-main">
-    <div class="contact-layout">
 
-      <section class="hero-text">
-        <p class="kicker">Property Enquiry</p>
-        <h1 class="headline">Your Property, Our Priority.</h1>
-        <p class="subhead">Contact Us Today</p>
-      </section>
-
-      <section class="form-wrap">
-        <form id="contactForm" class="form-card" novalidate>
-          <h2 class="form-title">Contact Us Form</h2>
-
-          <div class="mb-3">
-            <label for="full_name" class="form-label">Full Name</label>
-            <input type="text" class="form-control" id="full_name" name="full_name" minlength="2" maxlength="100" required>
-            <div class="invalid-feedback">Please enter your full name.</div>
+  <main class="contact_us_green_wrap">
+    <div class="contact_us_green">
+      <div class="responsive-container-block big-container">
+        <div class="responsive-container-block container">
+          <div class="responsive-cell-block wk-tab-12 wk-mobile-12 wk-desk-7 wk-ipadp-10 line" id="i69b-2">
+            <form class="form-box" id="contactForm" novalidate>
+              <div class="container-block form-wrapper">
+                <div class="head-text-box">
+                  <h2 class="text-blk contactus-head">Contact Us Form</h2>
+                  <p class="text-blk contactus-subhead">
+                    Your Property, Our Priority. Contact us today to explore exclusive listings and get your property queries answered.
+                  </p>
+                </div>
+                <div class="responsive-container-block">
+                  <div class="responsive-cell-block wk-ipadp-6 wk-tab-12 wk-mobile-12 wk-desk-6" id="i10mt-6">
+                    <p class="text-blk input-title">
+                      FIRST NAME <span class="text-danger">*</span>
+                    </p>
+                    <input class="input" id="ijowk-6" name="FirstName" placeholder="Enter first name" required>
+                  </div>
+                  <div class="responsive-cell-block wk-desk-6 wk-ipadp-6 wk-tab-12 wk-mobile-12">
+                    <p class="text-blk input-title">
+                      LAST NAME
+                    </p>
+                    <input class="input" id="indfi-4" name="Last Name" placeholder="Enter last name">
+                  </div>
+                  <div class="responsive-cell-block wk-desk-6 wk-ipadp-6 wk-tab-12 wk-mobile-12">
+                    <p class="text-blk input-title">
+                      EMAIL <span class="text-danger">*</span>
+                    </p>
+                    <input type="email" class="input" id="ipmgh-6" name="Email" placeholder="Enter email address" required>
+                  </div>
+                  <div class="responsive-cell-block wk-desk-6 wk-ipadp-6 wk-tab-12 wk-mobile-12">
+                    <p class="text-blk input-title">
+                      PHONE NUMBER <span class="text-danger">*</span>
+                    </p>
+                    <div class="input-group phone-input-group">
+                      <div class="custom-country-picker" id="customCountryPicker">
+                        <button type="button" class="country-picker-btn" id="countryPickerBtn" aria-haspopup="listbox" aria-expanded="false" title="Select Country">
+                          <img src="https://flagcdn.com/w40/in.png" class="country-flag-img" id="selectedFlag" alt="IN" width="22" height="15">
+                          <span class="country-dial-code" id="selectedDialCode">+91</span>
+                          <svg class="dropdown-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="#64748B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="country-dropdown-menu" id="countryDropdownMenu" role="listbox" hidden>
+                          <div class="country-search-wrap">
+                            <input type="text" class="country-search-input" placeholder="Search country..." autocomplete="off">
+                          </div>
+                          <ul class="country-list"></ul>
+                        </div>
+                        <input type="hidden" name="country_code" id="country_code" value="+91">
+                      </div>
+                      <input type="tel" class="input form-control" id="imgis-5" name="PhoneNumber" placeholder="Phone Number" required>
+                    </div>
+                  </div>
+                  <div class="responsive-cell-block wk-tab-12 wk-mobile-12 wk-desk-12 wk-ipadp-12" id="i634i-6">
+                    <p class="text-blk input-title">
+                      WHAT DO YOU HAVE IN MIND
+                    </p>
+                    <textarea class="textinput" id="i5vyy-6" name="requirement" placeholder="Please enter query..."></textarea>
+                  </div>
+                  <div class="responsive-cell-block wk-tab-12 wk-mobile-12 wk-desk-12 wk-ipadp-12 checkbox-container">
+                    <div class="checkbox-box">
+                      <input id="whatsapp_opt_in" type="checkbox" name="whatsapp_opt_in" value="true" autocomplete="off">
+                      <label class="checkbox-text" for="whatsapp_opt_in">
+                        I agree to receive a WhatsApp greeting and property enquiry updates at this number.
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="btn-wrapper">
+                  <button type="submit" class="submit-btn" id="submitBtn">
+                    Submit
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
-
-          <div class="mb-3">
-            <label for="email" class="form-label">Email</label>
-            <input type="email" class="form-control" id="email" name="email" required>
-            <div class="invalid-feedback">Please enter a valid email address.</div>
+          <div class="responsive-cell-block wk-tab-12 wk-mobile-12 wk-desk-5 wk-ipadp-10" id="ifgi">
+            <div class="container-box">
+              <div class="text-content">
+                <h2 class="text-blk contactus-head">Contact Us Form</h2>
+                <p class="text-blk contactus-subhead">
+                  Reach out to our dedicated property advisors for viewing appointments, project brochures, or expert consultations.
+                </p>
+              </div>
+              <div class="workik-contact-bigbox">
+                <div class="workik-contact-box">
+                  <div class="phone text-box">
+                    <span class="contact-icon-badge" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1.02l-2.2 2.2z"/></svg>
+                    </span>
+                    <a href="tel:+917827633395" class="contact-text contact-link">
+                      +91 78276 33395
+                    </a>
+                  </div>
+                  <div class="address text-box">
+                    <span class="contact-icon-badge" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                    </span>
+                    <a href="mailto:sales@profilent.com" class="contact-text contact-link">
+                      sales@profilent.com
+                    </a>
+                  </div>
+                  <div class="mail text-box">
+                    <span class="contact-icon-badge" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                    </span>
+                    <p class="contact-text">
+                      Gas Godam Rd, Shiv Puram Phase -I, Chadayal, Shiv Puram Colony, Haldwani, Lalpur Nayak, Uttarakhand 263139
+                    </p>
+                  </div>
+                </div>
+                <div class="social-media-links">
+                  <a href="mailto:sales@profilent.com" class="social-btn social-btn-google" aria-label="Email sales@profilent.com" title="Email sales@profilent.com">
+                    <svg class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M21.35 11.1h-9.17v2.98h5.27c-.23 1.25-.93 2.3-1.98 3.01v2.5h3.2c1.87-1.72 2.95-4.26 2.95-7.29 0-.41-.04-.81-.09-1.2h-.18z"/>
+                      <path d="M12.18 22c2.7 0 4.96-.9 6.62-2.42l-3.2-2.5c-.9.6-2.05.96-3.42.96-2.63 0-4.86-1.78-5.66-4.17H3.21v2.58C4.87 19.74 8.27 22 12.18 22z"/>
+                      <path d="M6.52 13.87a5.98 5.98 0 0 1 0-3.74V7.55H3.21a9.98 9.98 0 0 0 0 8.9l3.31-2.58z"/>
+                      <path d="M12.18 5.96c1.47 0 2.79.51 3.83 1.5l2.87-2.87C17.14 3.04 14.88 2 12.18 2 8.27 2 4.87 4.26 3.21 7.55l3.31 2.58c.8-2.39 3.03-4.17 5.66-4.17z"/>
+                    </svg>
+                  </a>
+                  <a href="https://www.linkedin.com/company/profilentdigital/posts/" target="_blank" rel="noopener noreferrer" class="social-btn social-btn-linkedin" aria-label="LinkedIn" title="LinkedIn">
+                    <svg class="social-icon" viewBox="2.5 2.5 19 19" aria-hidden="true">
+                      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.65 1.65 0 0 0-1.66 1.65 1.66 1.66 0 0 0 1.66 1.66 1.66 1.66 0 0 0 1.66-1.66c0-.92-.74-1.65-1.66-1.65Z"/>
+                    </svg>
+                  </a>
+                  <a href="https://www.instagram.com/profilentdigital/" target="_blank" rel="noopener noreferrer" class="social-btn social-btn-instagram" aria-label="Instagram" title="Instagram">
+                    <svg class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                  </a>
+                  <a href="https://twitter.com/" target="_blank" rel="noopener noreferrer" class="social-btn social-btn-twitter" aria-label="Twitter" title="Twitter">
+                    <svg class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                  </a>
+                  <a href="https://facebook.com/" target="_blank" rel="noopener noreferrer" class="social-btn social-btn-facebook" aria-label="Facebook" title="Facebook">
+                    <svg class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div class="mb-3">
-            <label for="contact_number" class="form-label">Contact Number</label>
-            <input type="tel" class="form-control" id="contact_number" name="contact_number"
-                   placeholder="+91 98765 43210" pattern="\+[1-9][0-9\s\-]{7,17}" required>
-            <div class="invalid-feedback">Enter the number with its country code, for example +91 98765 43210.</div>
-          </div>
-
-
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" id="whatsapp_opt_in" name="whatsapp_opt_in" value="true" required>
-            <label class="form-check-label small text-muted" for="whatsapp_opt_in">I agree to receive a WhatsApp greeting and property enquiry questions at this number.</label>
-            <div class="invalid-feedback">Please consent to WhatsApp follow-up to submit this form.</div>
-          </div>
-          <button type="submit" class="btn btn-submit w-100" id="submitBtn">Send Enquiry</button>
-        </form>
-      </section>
-
+        </div>
+      </div>
     </div>
   </main>
 
-  <div class="popup-overlay" id="successPopup" hidden>
-    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
-      <button type="button" class="popup-close" id="popupClose" aria-label="Close">&times;</button>
-      <div class="popup-top">
-        <div class="popup-check">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
-        </div>
-        <h3 id="popupTitle">Thank You!</h3>
-        <p id="successMessage">Your details have been sent. Reply to our WhatsApp thank-you message to continue with the property questions.</p>
-      </div>
-      <div class="popup-bottom">
-        <button type="button" class="popup-btn" id="popupOk">OK</button>
-      </div>
-    </div>
-  </div>
-
+  <!-- Error Popup (Validation / Server Issues) -->
   <div class="popup-overlay alert-overlay" id="errorPopup" hidden>
     <div class="alert-card" role="alertdialog" aria-modal="true" aria-labelledby="errorTitle" aria-describedby="errorMessage">
       <div class="alert-art" aria-hidden="true">
@@ -100,6 +197,7 @@
     </div>
   </div>
 
-  <script src="/static/script.js?v=20261021-fixed-questionnaire"></script>
+  <script src="/static/country-picker.js?v=20261029-flag-picker2"></script>
+  <script src="/static/script.js?v=20261029-reload-after-submit"></script>
 </body>
 </html>

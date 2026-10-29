@@ -7,3 +7,5 @@ dnspython
 itsdangerous
 twilio>=9.0.0
 requests>=2.31.0
+phonenumbers>=9.0.0
+python-multipart>=0.0.12

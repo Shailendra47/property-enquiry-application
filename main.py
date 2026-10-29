@@ -10,23 +10,26 @@ import secrets
 import smtplib
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
-from zoneinfo import ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from email.message import EmailMessage
 from pathlib import Path
-from urllib.parse import quote_plus, urlencode, urlsplit
+from urllib.parse import quote_plus, urlsplit
 import urllib.request
 import urllib.error
+
+from typing import Any
+
+import phonenumbers
+from phonenumbers import NumberParseException
 
 from bson import ObjectId
 from bson.errors import InvalidId
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import AliasChoices, BaseModel, EmailStr, Field, field_validator
-from pymongo import AsyncMongoClient
-from pymongo import ReturnDocument
+from pydantic import AliasChoices, BaseModel, EmailStr, Field, field_validator, model_validator
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
@@ -34,13 +37,21 @@ from twilio.request_validator import RequestValidator
 from location_service import is_verified_place, photon_locations, verified_locations
 
 load_dotenv()
-from zoho_crm import sync_zoho_lead
+from zoho_crm import sync_zoho_lead, sync_upserted_lead_to_zoho
+from conversation_ai import (
+    is_ai_configured,
+    execute_hybrid_ai_turn,
+    analyze_lead_with_ai,
+    detect_language,
+    get_question_prompt,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME", "property_db")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "contacts")
 ENQUIRY_COLLECTION_NAME = os.getenv("ENQUIRY_COLLECTION_NAME", "property_leads")
+UPSERT_COLLECTION_NAME = os.getenv("UPSERT_COLLECTION_NAME", "upserted_leads")
 
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -51,7 +62,6 @@ SALES_EMAIL = os.getenv("SALES_EMAIL", SMTP_USER or "").strip()
 AGENT_PHONE = os.getenv("AGENT_PHONE", "")
 CALENDLY_URL = os.getenv("CALENDLY_URL", "https://calendly.com/shailendra-profilent/30min")
 CALENDLY_WEBHOOK_SIGNING_KEY = os.getenv("CALENDLY_WEBHOOK_SIGNING_KEY", "")
-CALENDLY_BOOKING_TEMPLATE_SID = os.getenv("TWILIO_WHATSAPP_BOOKING_TEMPLATE_SID", "")
 CALENDLY_TOKEN = os.getenv("CALENDLY_TOKEN", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
@@ -77,9 +87,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def schedule_page_url() -> str:
-    """Return the public booking page, with Calendly as a fallback."""
-    if PUBLIC_BASE_URL:
-        return f"{PUBLIC_BASE_URL}/schedule"
+    """Return the direct Calendly meeting URL."""
     return CALENDLY_URL
 
 
@@ -188,7 +196,6 @@ def ai_extract_property_preferences(text: str, answers: dict) -> dict:
         return {}
 
 logger = logging.getLogger("uvicorn.error")
-
 SESSION_SECRET = os.getenv("SESSION_SECRET")
 if not SESSION_SECRET:
     SESSION_SECRET = secrets.token_hex(32)
@@ -200,15 +207,14 @@ if not SESSION_SECRET:
 
 from whatsapp_bot import (
     BOOKING_TEMPLATE_SID,
-    LISTS,
     TEXT_PROMPTS,
     booking_window_open,
     dispatch_stage,
     find_list_stage,
+    format_completion_summary_message,
     list_choice,
     menu_fallback,
     send_booking_confirmation,
-    send_content,
     send_text,
     start_questionnaire,
     start_message_text,
@@ -227,6 +233,7 @@ async def lifespan(app: FastAPI):
     app.state.enquiries = client[DB_NAME][ENQUIRY_COLLECTION_NAME]
     app.state.whatsapp_conversations = client[DB_NAME]["whatsapp_conversations"]
     app.state.calendly_webhook_events = client[DB_NAME]["calendly_webhook_events"]
+    app.state.upserted_leads = client[DB_NAME][UPSERT_COLLECTION_NAME]
     await asyncio.gather(
         app.state.contacts.create_index([("created_at", -1)]),
         app.state.contacts.create_index("email"),
@@ -242,6 +249,18 @@ async def lifespan(app: FastAPI):
         app.state.enquiries.create_index("bhk_preference"),
         app.state.whatsapp_conversations.create_index("phone"),
         app.state.calendly_webhook_events.create_index("invitee_uri", unique=True),
+        app.state.contacts.create_index("zoho_sync_status"),
+        app.state.enquiries.create_index("zoho_sync_status"),
+        app.state.contacts.create_index("lead_rating"),
+        app.state.enquiries.create_index("lead_rating"),
+        app.state.contacts.create_index("phone"),
+        app.state.upserted_leads.create_index("id", unique=True),
+        app.state.upserted_leads.create_index("phone"),
+        app.state.upserted_leads.create_index("email"),
+        app.state.upserted_leads.create_index([("created_at", -1)]),
+        app.state.upserted_leads.create_index("lead_rating"),
+        app.state.upserted_leads.create_index("zoho_sync_status"),
+        app.state.upserted_leads.create_index("zoho_lead_id"),
     )
     yield
     await client.close()
@@ -255,17 +274,56 @@ app.add_middleware(
     max_age=60 * 60 * 8,
     same_site="lax",
 )
+
+
+@app.middleware("http")
+async def add_cache_busting_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path in {"/", "/enquiry", "/workflow"} or path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 class ContactForm(BaseModel):
-    full_name: str = Field(min_length=2, max_length=100)
+    first_name: str = Field(default="", max_length=50)
+    last_name: str = Field(default="", max_length=50)
+    full_name: str = Field(default="", max_length=100)
     email: EmailStr
-    contact_number: str
+    contact_number: str = Field(validation_alias=AliasChoices("contact_number", "mobile_number", "phone", "PhoneNumber"))
     requirement: str = Field(default="", max_length=1000)
     whatsapp_opt_in: bool = False
 
+    @model_validator(mode="before")
+    @classmethod
+    def populate_names_and_requirement(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            fn = str(data.get("first_name") or data.get("FirstName") or "").strip()
+            ln = str(data.get("last_name") or data.get("LastName") or data.get("Last Name") or "").strip()
+            full = str(data.get("full_name") or "").strip()
+            if not full and (fn or ln):
+                full = f"{fn} {ln}".strip()
+            elif full and not fn:
+                parts = full.split(maxsplit=1)
+                fn = parts[0] if parts else ""
+                ln = parts[1] if len(parts) > 1 else ""
+            data["first_name"] = fn
+            data["last_name"] = ln
+            data["full_name"] = full
+            phone = str(data.get("contact_number") or data.get("mobile_number") or data.get("phone") or data.get("PhoneNumber") or "").strip()
+            if phone:
+                data["contact_number"] = phone
+            req = str(data.get("requirement") or data.get("remarks_requirements") or data.get("remarks") or "").strip()
+            data["requirement"] = req
+        return data
+
     @field_validator("full_name")
     @classmethod
-    def strip_text(cls, v: str) -> str:
-        return v.strip()
+    def validate_name(cls, v: str) -> str:
+        v = (v or "").strip()
+        if len(v) < 2:
+            raise ValueError("First name or full name must be at least 2 characters.")
+        return v
 
     @field_validator("contact_number")
     @classmethod
@@ -383,11 +441,13 @@ async def process_contact_submission(
     background_tasks: BackgroundTasks,
 ) -> None:
     """Run independent post-save notifications and CRM sync concurrently."""
-    jobs = (
-        ("WhatsApp start", start_questionnaire(
+    jobs = []
+    if lead.get("whatsapp_opt_in"):
+        jobs.append(("WhatsApp start", start_questionnaire(
             conversations, phone, contact_id, background_tasks,
-            full_name=full_name, email=email,
-        )),
+            full_name=full_name, email=email, requirement=lead.get("requirement", ""),
+        )))
+    jobs.extend([
         ("salesperson email", run_in_threadpool(
             send_salesperson_notification,
             "New property enquiry",
@@ -396,15 +456,14 @@ async def process_contact_submission(
                 "Email": email,
                 "Contact number": phone,
                 "Initial requirement": lead.get("requirement", ""),
-                "WhatsApp opt-in": "Yes",
+                "WhatsApp opt-in": "Yes" if lead.get("whatsapp_opt_in") else "No",
                 "Contact record ID": contact_id,
             },
         )),
-        ("Zoho sync", run_in_threadpool(sync_zoho_lead, lead)),
         ("customer email", run_in_threadpool(
             send_confirmation_email, full_name, email, "our properties",
         )),
-    )
+    ])
     results = await asyncio.gather(*(job for _, job in jobs), return_exceptions=True)
     for (label, _), result in zip(jobs, results):
         if isinstance(result, BaseException):
@@ -415,13 +474,16 @@ async def process_contact_submission(
 
 @app.post("/api/contact", status_code=201)
 async def create_contact(form: ContactForm, background_tasks: BackgroundTasks):
-    if not form.whatsapp_opt_in:
-        raise HTTPException(status_code=422, detail="WhatsApp consent is required to submit this enquiry.")
     doc = form.model_dump()
-    if not doc.get("requirement"):
-        doc.pop("requirement", None)
+    doc["first_name"] = form.first_name
+    doc["last_name"] = form.last_name
+    doc["full_name"] = form.full_name
+    doc["requirement"] = form.requirement.strip()
 
-    whatsapp_phone = re.sub(r"[\s()-]", "", form.contact_number)
+    raw_phone = re.sub(r"[\s()-]", "", form.contact_number)
+    if not raw_phone.startswith("+"):
+        raw_phone = f"+91{raw_phone.lstrip('0')}"
+    whatsapp_phone = raw_phone
     if not re.fullmatch(r"\+[1-9][0-9]{7,14}", whatsapp_phone):
         raise HTTPException(
             status_code=422,
@@ -442,23 +504,29 @@ async def create_contact(form: ContactForm, background_tasks: BackgroundTasks):
             detail="Could not save your details. Please try again.",
         )
 
-    lead = {**doc, "source": "Website contact form", "local_id": str(result.inserted_id)}
+    contact_id = str(result.inserted_id)
+    lead = {**doc, "source": "Website contact form", "local_id": contact_id}
     background_tasks.add_task(
         process_contact_submission,
         app.state.whatsapp_conversations,
         whatsapp_phone,
-        str(result.inserted_id),
+        contact_id,
         form.full_name,
         str(form.email),
         lead,
         background_tasks,
     )
+    background_tasks.add_task(sync_and_save_upserted_leads, app.state)
+
+    whatsapp_sender_clean = re.sub(r"\D", "", os.getenv("TWILIO_WHATSAPP_FROM", "14155238886")) or "14155238886"
+    whatsapp_url = f"https://wa.me/{whatsapp_sender_clean}?text=Hi"
 
     return {
         "message": "Your enquiry was saved.",
         "email_status": "queued",
-        "whatsapp_started": True,
-        "whatsapp_status": "queued",
+        "whatsapp_started": bool(form.whatsapp_opt_in),
+        "whatsapp_status": "queued" if form.whatsapp_opt_in else "not_requested",
+        "whatsapp_url": whatsapp_url,
         "id": str(result.inserted_id),
     }
 
@@ -524,10 +592,20 @@ class EnquiryForm(BaseModel):
     remarks_requirements: str = Field(
         default="",
         max_length=1000,
-        validation_alias=AliasChoices("remarks_requirements", "remarks"),
+        validation_alias=AliasChoices("remarks_requirements", "remarks", "requirement"),
     )
+    requirement: str = Field(default="", max_length=1000)
 
-    @field_validator("first_name", "last_name", "location_preference", "remarks_requirements")
+    @model_validator(mode="before")
+    @classmethod
+    def sync_requirement_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            req = str(data.get("requirement") or data.get("remarks_requirements") or data.get("remarks") or "").strip()
+            data["requirement"] = req
+            data["remarks_requirements"] = req
+        return data
+
+    @field_validator("first_name", "last_name", "location_preference", "remarks_requirements", "requirement")
     @classmethod
     def strip_text(cls, v: str) -> str:
         return v.strip()
@@ -536,7 +614,9 @@ class EnquiryForm(BaseModel):
     @classmethod
     def valid_mobile(cls, v: str) -> str:
         cleaned = re.sub(r"[\s-]", "", v)
-        if not re.fullmatch(r"\+?[0-9]{10,15}", cleaned):
+        if not cleaned.startswith("+"):
+            cleaned = f"+91{cleaned.lstrip('0')}"
+        if not re.fullmatch(r"\+[0-9]{8,15}", cleaned):
             raise ValueError("Enter a valid mobile number")
         return cleaned
 
@@ -557,6 +637,117 @@ async def search_locations(q: str = Query(min_length=3, max_length=100)):
         raise HTTPException(status_code=503, detail="Location verification is temporarily unavailable.")
 
 
+async def process_property_enquiry_submission(
+    app_state,
+    enquiry_doc: dict,
+    enquiry_answers: dict,
+    local_id: str,
+    whatsapp_phone: str,
+    first_name: str,
+    email: str,
+    full_name: str,
+    location_pref: str,
+    background_tasks: BackgroundTasks,
+) -> None:
+    """Analyze Property Form enquiry with Gemini AI, save rating/score to MongoDB,
+    sync ONLY HOT leads to Zoho CRM, and dispatch WhatsApp confirmation with Calendly link.
+    """
+    now = datetime.now(timezone.utc)
+    # 1. AI Analysis with Gemini (Hot / Warm / Cold)
+    ai_eval = await run_in_threadpool(analyze_lead_with_ai, enquiry_answers)
+    rating = ai_eval.get("rating", "Warm")
+    score = ai_eval.get("score", 50)
+    is_hot = ai_eval.get("is_hot", False)
+    summary_ai = ai_eval.get("summary", "")
+
+    # 2. Persist AI analysis back to MongoDB enquiry
+    update_fields = {
+        "lead_rating": rating,
+        "ai_rating": rating,
+        "lead_score": score,
+        "ai_analysis": summary_ai,
+        "ai_triggers": ai_eval.get("triggers", []),
+        "lead_evaluated_at": now,
+        "zoho_sync_status": "pending" if is_hot else "skipped_cold",
+        "zoho_sync_reason": (
+            f"AI classified Hot lead (Score: {score}/100)"
+            if is_hot
+            else f"Saved in Admin only (AI classified as {rating} lead, score {score}/100)"
+        ),
+    }
+    if not is_hot:
+        update_fields["zoho_lead_id"] = None
+
+    try:
+        await app_state.enquiries.update_one(
+            {"_id": ObjectId(local_id)},
+            {"$set": update_fields},
+        )
+    except Exception as exc:
+        logger.warning("Could not update enquiry %s with AI analysis: %s", local_id, exc)
+
+    # 3. Automatic Zoho CRM Sync: ONLY HOT LEADS
+    if is_hot:
+        logger.info(
+            "AI Lead Analysis: Property Form lead %s classified as HOT (%d/100). Auto-syncing to Zoho CRM.",
+            whatsapp_phone,
+            score,
+        )
+        lead_payload = {
+            **enquiry_doc,
+            **update_fields,
+            "full_name": full_name,
+            "source": "Website property enquiry",
+            "local_id": local_id,
+        }
+        background_tasks.add_task(sync_zoho_lead, lead_payload)
+    else:
+        logger.info(
+            "AI Lead Analysis: Property Form lead %s classified as %s (%d/100). Saved in Admin only.",
+            whatsapp_phone,
+            rating,
+            score,
+        )
+
+    # 4. Dispatch WhatsApp message with details & prefilled Calendly link
+    whatsapp_msg = format_completion_summary_message(
+        enquiry_answers,
+        first_name=first_name,
+        schedule_url=schedule_page_url(),
+    )
+
+    def _dispatch_whatsapp():
+        sid = send_text(whatsapp_phone, whatsapp_msg)
+        if not sid and not TWILIO_WHATSAPP_SANDBOX:
+            send_whatsapp_thankyou_template(whatsapp_phone, first_name, email)
+
+    background_tasks.add_task(run_in_threadpool, _dispatch_whatsapp)
+
+    # 5. Customer email & Salesperson notification with AI Lead Rating
+    background_tasks.add_task(
+        send_confirmation_email, full_name, email, f"properties in {location_pref}"
+    )
+    background_tasks.add_task(
+        send_salesperson_notification,
+        f"New Property Enquiry ({rating} Lead)",
+        {
+            "Name": full_name,
+            "Email": email,
+            "Contact number": whatsapp_phone,
+            "Lead Rating": f"{rating} (Score: {score}/100)",
+            "AI Analysis": summary_ai,
+            "Location preference": enquiry_answers.get("location_preference", ""),
+            "Buying timeline": enquiry_answers.get("planning_to_buy", ""),
+            "Budget": enquiry_answers.get("budget_range", ""),
+            "Payment preference": enquiry_answers.get("payment_option", ""),
+            "Property type": enquiry_answers.get("bhk_preference", ""),
+            "Special requirements": enquiry_answers.get("remarks_requirements", ""),
+            "Zoho CRM Status": "Auto-syncing to Zoho CRM" if is_hot else "Saved in Admin only",
+        },
+    )
+    background_tasks.add_task(sync_and_save_upserted_leads, app_state)
+
+
 @app.post("/api/enquiry", status_code=201)
 async def create_enquiry(form: EnquiryForm, background_tasks: BackgroundTasks):
     matches = []
@@ -569,25 +760,81 @@ async def create_enquiry(form: EnquiryForm, background_tasks: BackgroundTasks):
     if matches and not is_verified_place(form.location_preference, matches):
         raise HTTPException(status_code=422, detail="Choose a location from the verified suggestions.")
     doc = form.model_dump()
+    full_name = f"{form.first_name} {form.last_name}".strip()
+    req = (form.requirement or form.remarks_requirements or "").strip()
+    doc["first_name"] = form.first_name
+    doc["last_name"] = form.last_name
+    doc["full_name"] = full_name
+    doc["requirement"] = req
+    doc["remarks_requirements"] = req
     doc["created_at"] = datetime.now(timezone.utc)
     try:
         result = await app.state.enquiries.insert_one(doc)
     except PyMongoError:
         raise HTTPException(status_code=500, detail="Could not save your enquiry. Please try again.")
-    full_name = f"{form.first_name} {form.last_name}".strip()
+    raw_phone = re.sub(r"[\s()-]", "", form.mobile_number)
+    if not raw_phone.startswith("+"):
+        raw_phone = f"+91{raw_phone.lstrip('0')}"
+    whatsapp_phone = raw_phone
+
+    # Pre-populate WhatsApp conversation with complete submitted form data
+    enquiry_answers = {
+        "full_name": full_name,
+        "first_name": form.first_name,
+        "last_name": form.last_name,
+        "email": str(form.email),
+        "mobile_number": whatsapp_phone,
+        "location_preference": form.location_preference,
+        "bhk_preference": form.bhk_preference,
+        "budget_range": form.budget_range,
+        "planning_to_buy": form.planning_to_buy,
+        "payment_option": form.payment_option,
+        "remarks_requirements": req,
+    }
+    now_utc = datetime.now(timezone.utc)
+    try:
+        await app.state.whatsapp_conversations.update_one(
+            {"phone": whatsapp_phone},
+            {
+                "$set": {
+                    "phone": whatsapp_phone,
+                    "status": "complete",
+                    "stage": "complete",
+                    "completed_at": now_utc,
+                    "source": "property_enquiry_form",
+                    "answers": enquiry_answers,
+                    "form_requirement": req,
+                    "updated_at": now_utc,
+                },
+                "$setOnInsert": {
+                    "created_at": now_utc,
+                },
+            },
+            upsert=True,
+        )
+    except Exception:
+        logger.warning("Could not pre-populate whatsapp_conversations for %s", whatsapp_phone)
+
     background_tasks.add_task(
-        sync_zoho_lead,
-        {
-            **doc,
-            "full_name": full_name,
-            "source": "Website property enquiry",
-            "local_id": str(result.inserted_id),
-        },
+        process_property_enquiry_submission,
+        app.state,
+        doc,
+        enquiry_answers,
+        str(result.inserted_id),
+        whatsapp_phone,
+        form.first_name,
+        str(form.email),
+        full_name,
+        form.location_preference,
+        background_tasks,
     )
-    background_tasks.add_task(
-        send_confirmation_email, full_name, form.email, f"properties in {form.location_preference}"
-    )
-    return {"message": "Thank you! Your enquiry has been submitted. We will contact you shortly.", "id": str(result.inserted_id)}
+    whatsapp_sender_clean = re.sub(r"\D", "", os.getenv("TWILIO_WHATSAPP_FROM", "14155238886")) or "14155238886"
+    whatsapp_url = f"https://wa.me/{whatsapp_sender_clean}?text=Hi"
+    return {
+        "message": "Thank you! Your enquiry has been submitted. A WhatsApp confirmation has been sent to your phone.",
+        "whatsapp_url": whatsapp_url,
+        "id": str(result.inserted_id),
+    }
 
 
 # ---------------------------------------------------------------- Admin auth
@@ -601,6 +848,11 @@ def require_admin(request: Request) -> None:
         raise HTTPException(status_code=503, detail="Set ADMIN_PASSWORD in your .env file to use the admin panel.")
     if not request.session.get("admin"):
         raise HTTPException(status_code=401, detail="Not logged in")
+
+
+@app.get("/login", include_in_schema=False)
+async def login_shortcut():
+    return RedirectResponse("/admin/login")
 
 
 @app.get("/admin/login", include_in_schema=False)
@@ -645,14 +897,21 @@ async def latest_docs(collection, projection: dict, limit: int = 500):
     docs = await collection.find({}, projection).sort("created_at", -1).limit(limit).to_list()
     for d in docs:
         d["id"] = str(d.pop("_id"))
-        d["created_at"] = d["created_at"].isoformat()
+        ca = d.get("created_at")
+        if isinstance(ca, datetime):
+            d["created_at"] = ca.isoformat()
+        elif ca:
+            d["created_at"] = str(ca)
+        else:
+            d["created_at"] = ""
     return docs
 
 
 @app.get("/api/admin/summary", dependencies=[Depends(require_admin)])
 async def admin_summary():
     start = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0)
-    today = {"created_at": {"$gte": start}}
+    start_utc = start.astimezone(timezone.utc)
+    today = {"created_at": {"$gte": start_utc}}
     contacts, enquiries = app.state.contacts, app.state.enquiries
     (
         contacts_total,
@@ -676,7 +935,7 @@ async def admin_summary():
             {"$sort": {"count": -1}},
         ]),
     )
-    bhk = {d["_id"]: d["count"] for d in await bhk_cursor.to_list()}
+    bhk = {str(d["_id"]): d["count"] for d in await bhk_cursor.to_list() if d.get("_id")}
     return {
         "total": contacts_total + enquiries_total,
         "cards": {
@@ -696,33 +955,53 @@ async def admin_summary():
 @app.get("/api/admin/contacts", dependencies=[Depends(require_admin)])
 async def admin_list_contacts():
     return await latest_docs(app.state.contacts, {
-        "created_at": 1, "full_name": 1, "email": 1, "contact_number": 1,
-        "whatsapp_opt_in": 1, "whatsapp_answers": 1, "whatsapp_flow_status": 1,
+        "created_at": 1, "first_name": 1, "last_name": 1, "full_name": 1, "email": 1, "contact_number": 1,
+        "requirement": 1, "whatsapp_opt_in": 1, "whatsapp_answers": 1, "whatsapp_flow_status": 1,
         "zoho_lead_id": 1, "zoho_synced_at": 1, "zoho_sync_status": 1,
+        "lead_rating": 1, "lead_score": 1, "zoho_sync_reason": 1, "ai_analysis": 1,
     })
 
 
 @app.post("/api/admin/contacts", status_code=201, dependencies=[Depends(require_admin)])
-async def admin_create_contact(form: ContactForm):
+async def admin_create_contact(form: ContactForm, background_tasks: BackgroundTasks):
     doc = form.model_dump()
+    doc["first_name"] = form.first_name
+    doc["last_name"] = form.last_name
+    doc["full_name"] = form.full_name
+    doc["requirement"] = form.requirement.strip()
     doc["created_at"] = datetime.now(timezone.utc)
     result = await app.state.contacts.insert_one(doc)
-    return {"id": str(result.inserted_id)}
+    lead_id = str(result.inserted_id)
+    background_tasks.add_task(
+        sync_zoho_lead,
+        {**doc, "local_id": lead_id, "source": "Admin Contact Us Lead"},
+    )
+    return {"id": lead_id}
 
 
 @app.put("/api/admin/contacts/{lead_id}", dependencies=[Depends(require_admin)])
-async def admin_update_contact(lead_id: str, form: ContactForm):
-    result = await app.state.contacts.update_one({"_id": oid(lead_id)}, {"$set": form.model_dump()})
+async def admin_update_contact(lead_id: str, form: ContactForm, background_tasks: BackgroundTasks):
+    doc = form.model_dump()
+    doc["first_name"] = form.first_name
+    doc["last_name"] = form.last_name
+    doc["full_name"] = form.full_name
+    doc["requirement"] = form.requirement.strip()
+    result = await app.state.contacts.update_one({"_id": oid(lead_id)}, {"$set": doc})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Lead not found")
+    background_tasks.add_task(
+        sync_zoho_lead,
+        {**doc, "local_id": lead_id, "source": "Admin Contact Us Lead"},
+    )
     return {"message": "Lead updated"}
 
 
 @app.delete("/api/admin/contacts/{lead_id}", dependencies=[Depends(require_admin)])
-async def admin_delete_contact(lead_id: str):
+async def admin_delete_contact(lead_id: str, background_tasks: BackgroundTasks):
     result = await app.state.contacts.delete_one({"_id": oid(lead_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Lead not found")
+    background_tasks.add_task(sync_and_save_upserted_leads, app.state)
     return {"message": "Lead deleted"}
 
 
@@ -730,36 +1009,383 @@ async def admin_delete_contact(lead_id: str):
 @app.get("/api/admin/enquiries", dependencies=[Depends(require_admin)])
 async def admin_list_enquiries():
     return await latest_docs(app.state.enquiries, {
-        "created_at": 1, "first_name": 1, "last_name": 1, "email": 1,
+        "created_at": 1, "first_name": 1, "last_name": 1, "full_name": 1, "email": 1,
         "mobile_number": 1, "location_preference": 1, "planning_to_buy": 1,
         "budget_range": 1, "payment_option": 1, "bhk_preference": 1,
-        "remarks_requirements": 1, "remarks": 1,
+        "remarks_requirements": 1, "remarks": 1, "requirement": 1,
         "zoho_lead_id": 1, "zoho_synced_at": 1, "zoho_sync_status": 1,
+        "lead_rating": 1, "lead_score": 1, "zoho_sync_reason": 1, "ai_analysis": 1,
     })
 
 
 @app.post("/api/admin/enquiries", status_code=201, dependencies=[Depends(require_admin)])
-async def admin_create_enquiry(form: EnquiryForm):
+async def admin_create_enquiry(form: EnquiryForm, background_tasks: BackgroundTasks):
     doc = form.model_dump()
+    full_name = f"{form.first_name} {form.last_name}".strip()
+    req = (form.requirement or form.remarks_requirements or "").strip()
+    doc["first_name"] = form.first_name
+    doc["last_name"] = form.last_name
+    doc["full_name"] = full_name
+    doc["requirement"] = req
+    doc["remarks_requirements"] = req
     doc["created_at"] = datetime.now(timezone.utc)
     result = await app.state.enquiries.insert_one(doc)
-    return {"id": str(result.inserted_id)}
+    lead_id = str(result.inserted_id)
+    background_tasks.add_task(
+        sync_zoho_lead,
+        {**doc, "local_id": lead_id, "source": "Admin Property Enquiry"},
+    )
+    return {"id": lead_id}
 
 
 @app.put("/api/admin/enquiries/{lead_id}", dependencies=[Depends(require_admin)])
-async def admin_update_enquiry(lead_id: str, form: EnquiryForm):
-    result = await app.state.enquiries.update_one({"_id": oid(lead_id)}, {"$set": form.model_dump()})
+async def admin_update_enquiry(lead_id: str, form: EnquiryForm, background_tasks: BackgroundTasks):
+    doc = form.model_dump()
+    full_name = f"{form.first_name} {form.last_name}".strip()
+    req = (form.requirement or form.remarks_requirements or "").strip()
+    doc["first_name"] = form.first_name
+    doc["last_name"] = form.last_name
+    doc["full_name"] = full_name
+    doc["requirement"] = req
+    doc["remarks_requirements"] = req
+    result = await app.state.enquiries.update_one({"_id": oid(lead_id)}, {"$set": doc})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Lead not found")
+    background_tasks.add_task(
+        sync_zoho_lead,
+        {**doc, "local_id": lead_id, "source": "Admin Property Enquiry"},
+    )
     return {"message": "Lead updated"}
 
 
 @app.delete("/api/admin/enquiries/{lead_id}", dependencies=[Depends(require_admin)])
-async def admin_delete_enquiry(lead_id: str):
+async def admin_delete_enquiry(lead_id: str, background_tasks: BackgroundTasks):
     result = await app.state.enquiries.delete_one({"_id": oid(lead_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Lead not found")
+    background_tasks.add_task(sync_and_save_upserted_leads, app.state)
     return {"message": "Lead deleted"}
+
+
+def build_upserted_leads(contacts: list[dict], enquiries: list[dict]) -> list[dict]:
+    """Group and upsert leads by normalized 10-digit phone or lowercase email."""
+    items = []
+    for c in contacts:
+        items.append({"entity": "contact", "doc": c})
+    for e in enquiries:
+        items.append({"entity": "enquiry", "doc": e})
+
+    # Sort chronological ascending so newer submissions enrich/update older ones
+    items.sort(key=lambda x: str(x["doc"].get("created_at") or ""))
+
+    groups: dict[str, dict] = {}
+    phone_to_group: dict[str, str] = {}
+    email_to_group: dict[str, str] = {}
+
+    for item in items:
+        entity = item["entity"]
+        d = item["doc"]
+        raw_phone = d.get("contact_number") or d.get("mobile_number") or ""
+        clean_phone = re.sub(r"\D", "", str(raw_phone))
+        phone_key = clean_phone[-10:] if len(clean_phone) >= 10 else clean_phone
+
+        raw_email = (d.get("email") or "").strip().lower()
+        email_key = raw_email if raw_email else ""
+
+        # Identify target group: match by email first, or by phone if emails are not conflicting
+        group_id = None
+        if email_key and email_key in email_to_group:
+            group_id = email_to_group[email_key]
+        elif phone_key and phone_key in phone_to_group:
+            cand_group = groups.get(phone_to_group[phone_key])
+            if cand_group:
+                cand_email = (cand_group.get("email") or "").strip().lower()
+                if not cand_email or not email_key or cand_email == email_key:
+                    group_id = phone_to_group[phone_key]
+
+        # Merge groups if phone and email point to different existing groups without conflicting emails
+        if phone_key and email_key and phone_key in phone_to_group and email_key in email_to_group:
+            g_phone = phone_to_group[phone_key]
+            g_email = email_to_group[email_key]
+            if g_phone != g_email and g_phone in groups and g_email in groups:
+                t_email = (groups[g_phone].get("email") or "").strip().lower()
+                s_email = (groups[g_email].get("email") or "").strip().lower()
+                if not t_email or not s_email or t_email == s_email:
+                    target = groups[g_phone]
+                    source = groups.pop(g_email)
+                    target["records"].extend(source["records"])
+                    target["sources"].update(source["sources"])
+                    target["submission_count"] += source["submission_count"]
+                    target["requirements"].extend(r for r in source["requirements"] if r not in target["requirements"])
+                    if source.get("latest_requirement") and (not target.get("latest_requirement") or str(source.get("latest_activity") or "") >= str(target.get("latest_activity") or "")):
+                        target["latest_requirement"] = source["latest_requirement"]
+                    if source["email"] and not target["email"]:
+                        target["email"] = source["email"]
+                    if source["phone"] and not target["phone"]:
+                        target["phone"] = source["phone"]
+                    for f_pref in ["location_preference", "planning_to_buy", "budget_range", "payment_option", "bhk_preference"]:
+                        if source.get(f_pref) and not target.get(f_pref):
+                            target[f_pref] = source[f_pref]
+                    r_order = {"Hot": 3, "Warm": 2, "Cold": 1}
+                    if r_order.get(source.get("lead_rating"), 1) > r_order.get(target.get("lead_rating"), 1):
+                        target["lead_rating"] = source["lead_rating"]
+                    if source.get("zoho_lead_id") and not target.get("zoho_lead_id"):
+                        target["zoho_lead_id"] = source["zoho_lead_id"]
+                        target["zoho_sync_status"] = "synced"
+                    if not target.get("first_name") and source.get("first_name"):
+                        target["first_name"] = source["first_name"]
+                    if not target.get("last_name") and source.get("last_name"):
+                        target["last_name"] = source["last_name"]
+                    if not target.get("full_name") and source.get("full_name"):
+                        target["full_name"] = source["full_name"]
+                    for ek, gid in list(email_to_group.items()):
+                        if gid == g_email:
+                            email_to_group[ek] = g_phone
+                    for pk, gid in list(phone_to_group.items()):
+                        if gid == g_email:
+                            phone_to_group[pk] = g_phone
+                    group_id = g_phone
+
+        if not group_id:
+            group_id = f"upsert_{phone_key or email_key or d.get('id')}"
+            groups[group_id] = {
+                "id": group_id,
+                "first_name": "",
+                "last_name": "",
+                "full_name": "",
+                "email": "",
+                "phone": "",
+                "sources": set(),
+                "submission_count": 0,
+                "records": [],
+                "created_at": d.get("created_at"),
+                "latest_activity": d.get("created_at"),
+                "location_preference": "",
+                "planning_to_buy": "",
+                "budget_range": "",
+                "payment_option": "",
+                "bhk_preference": "",
+                "requirements": [],
+                "latest_requirement": "",
+                "lead_rating": "Cold",
+                "zoho_lead_id": None,
+                "zoho_sync_status": None,
+                "zoho_sync_reason": None,
+            }
+
+        if phone_key:
+            phone_to_group[phone_key] = group_id
+        if email_key:
+            email_to_group[email_key] = group_id
+
+        g = groups[group_id]
+        g["submission_count"] += 1
+
+        rec_id = str(d.get("id") or "")
+        if rec_id:
+            g["records"].append({"entity": entity, "id": rec_id})
+
+        src_label = "Contact Us" if entity == "contact" else "Property Enquiry"
+        g["sources"].add(src_label)
+
+        curr_created = d.get("created_at")
+        if curr_created:
+            g["latest_activity"] = curr_created
+
+        fn = d.get("first_name") or (d.get("full_name", "").split()[0] if d.get("full_name") else "")
+        ln = d.get("last_name") or (" ".join(d.get("full_name", "").split()[1:]) if d.get("full_name") else "")
+        if fn:
+            g["first_name"] = fn
+        if ln:
+            g["last_name"] = ln
+        if d.get("full_name"):
+            g["full_name"] = d.get("full_name")
+        elif g["first_name"]:
+            g["full_name"] = f"{g['first_name']} {g['last_name']}".strip()
+
+        if d.get("email"):
+            g["email"] = d["email"]
+        if raw_phone:
+            g["phone"] = raw_phone
+
+        for pref in ["location_preference", "planning_to_buy", "budget_range", "payment_option", "bhk_preference"]:
+            val = d.get(pref)
+            if val:
+                g[pref] = val
+
+        req = (d.get("requirement") or d.get("remarks_requirements") or d.get("remarks") or "").strip()
+        if req and req.lower() not in {"-", "none", "skip", "n/a", "no", "null"}:
+            formatted_req = f"[{src_label}] {req}"
+            g["latest_requirement"] = formatted_req
+            if formatted_req not in g["requirements"] and req not in g["requirements"]:
+                g["requirements"].append(formatted_req)
+
+        rating_priority = {"Hot": 3, "Warm": 2, "Cold": 1}
+        doc_rating = d.get("lead_rating") or "Cold"
+        if (
+            doc_rating == "Hot"
+            or d.get("planning_to_buy") in ["Immediately", "Within 1 Month"]
+            or (d.get("budget_range") and ("1 crore" in d.get("budget_range") or "Above 2 crore" in d.get("budget_range")))
+            or d.get("payment_option") == "Full Cash Payment"
+        ):
+            doc_rating = "Hot"
+        elif doc_rating == "Warm" or d.get("planning_to_buy") in ["Within 3 Months", "Within 6 Months"]:
+            doc_rating = "Warm"
+
+        if rating_priority.get(doc_rating, 1) > rating_priority.get(g["lead_rating"], 1):
+            g["lead_rating"] = doc_rating
+
+        if d.get("ai_analysis"):
+            g["ai_analysis"] = d["ai_analysis"]
+        if d.get("lead_score") is not None:
+            g["lead_score"] = d["lead_score"]
+
+        if d.get("zoho_lead_id") or d.get("zoho_sync_status") == "synced":
+            g["zoho_lead_id"] = d.get("zoho_lead_id")
+            g["zoho_sync_status"] = "synced"
+        elif not g["zoho_sync_status"] and d.get("zoho_sync_status"):
+            g["zoho_sync_status"] = d.get("zoho_sync_status")
+            g["zoho_sync_reason"] = d.get("zoho_sync_reason")
+
+    result = []
+    for g in groups.values():
+        pref_parts = [
+            g["location_preference"],
+            g["bhk_preference"],
+            g["budget_range"],
+            g["planning_to_buy"],
+        ]
+        clean_pref_parts = [p for p in pref_parts if p and p != "-"]
+        pref_summary = " · ".join(clean_pref_parts) if clean_pref_parts else "-"
+
+        result.append({
+            "id": g["id"],
+            "first_name": g["first_name"],
+            "last_name": g["last_name"],
+            "full_name": g["full_name"],
+            "email": g["email"],
+            "phone": g["phone"],
+            "sources": sorted(list(g["sources"])),
+            "submission_count": g["submission_count"],
+            "records": g["records"],
+            "created_at": g["latest_activity"] or g["created_at"],
+            "location_preference": g["location_preference"],
+            "planning_to_buy": g["planning_to_buy"],
+            "budget_range": g["budget_range"],
+            "payment_option": g["payment_option"],
+            "bhk_preference": g["bhk_preference"],
+            "property_summary": pref_summary,
+            "requirement": g.get("latest_requirement") or (g["requirements"][-1] if g.get("requirements") else "-"),
+            "requirements_history": " \n".join(g["requirements"]) if g.get("requirements") else "-",
+            "lead_rating": g["lead_rating"],
+            "lead_score": g.get("lead_score"),
+            "ai_analysis": g.get("ai_analysis") or "",
+            "zoho_lead_id": g["zoho_lead_id"] if g["lead_rating"] == "Hot" else None,
+            "zoho_sync_status": g["zoho_sync_status"] if g["lead_rating"] == "Hot" else "skipped_cold",
+            "zoho_sync_reason": g["zoho_sync_reason"] if g["lead_rating"] == "Hot" else "Filtered from Zoho CRM (Hot leads only)",
+        })
+
+    result.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    return result
+
+
+async def sync_and_save_upserted_leads(app_state, background_tasks: BackgroundTasks | None = None) -> list[dict]:
+    """Compute unified upserted leads, save to MongoDB upserted_leads collection,
+    and automatically sync qualifying Hot leads into Zoho CRM.
+    """
+    contacts = await latest_docs(app_state.contacts, {
+        "created_at": 1, "first_name": 1, "last_name": 1, "full_name": 1, "email": 1, "contact_number": 1,
+        "requirement": 1, "whatsapp_opt_in": 1, "whatsapp_answers": 1, "whatsapp_flow_status": 1,
+        "zoho_lead_id": 1, "zoho_synced_at": 1, "zoho_sync_status": 1,
+        "lead_rating": 1, "lead_score": 1, "zoho_sync_reason": 1, "ai_analysis": 1,
+    })
+    enquiries = await latest_docs(app_state.enquiries, {
+        "created_at": 1, "first_name": 1, "last_name": 1, "full_name": 1, "email": 1,
+        "mobile_number": 1, "location_preference": 1, "planning_to_buy": 1,
+        "budget_range": 1, "payment_option": 1, "bhk_preference": 1,
+        "remarks_requirements": 1, "remarks": 1, "requirement": 1,
+        "zoho_lead_id": 1, "zoho_synced_at": 1, "zoho_sync_status": 1,
+        "lead_rating": 1, "lead_score": 1, "zoho_sync_reason": 1, "ai_analysis": 1,
+    })
+    upserted_list = build_upserted_leads(contacts, enquiries)
+    now = datetime.now(timezone.utc)
+
+    for lead in upserted_list:
+        lead_id = lead["id"]
+        try:
+            existing = await app_state.upserted_leads.find_one({"id": lead_id})
+        except Exception:
+            existing = None
+
+        if existing and existing.get("zoho_lead_id"):
+            ex_email = (existing.get("email") or "").strip().lower()
+            cur_email = (lead.get("email") or "").strip().lower()
+            if not ex_email or not cur_email or ex_email == cur_email:
+                lead["zoho_lead_id"] = existing["zoho_lead_id"]
+                lead["zoho_sync_status"] = "synced"
+                lead["zoho_synced_at"] = existing.get("zoho_synced_at", now)
+
+        lead_to_save = {
+            **lead,
+            "updated_at": now,
+        }
+
+        try:
+            await app_state.upserted_leads.update_one(
+                {"id": lead_id},
+                {"$set": lead_to_save},
+                upsert=True,
+            )
+        except Exception as e:
+            logger.warning("Could not persist upsert lead %s to MongoDB: %s", lead_id, e)
+
+        # Automatic Zoho CRM sync: ONLY HOT leads saved to Zoho CRM
+        is_hot = lead.get("lead_rating") == "Hot"
+        if is_hot and not lead.get("zoho_lead_id"):
+            sources_label = ", ".join(lead.get("sources", ["Unified"]))
+            zoho_payload = {
+                **lead,
+                "local_id": lead_id,
+                "mobile_number": lead.get("phone", ""),
+                "source": "Upserted Lead (" + sources_label + ")",
+            }
+            if background_tasks:
+                background_tasks.add_task(sync_upserted_lead_to_zoho, zoho_payload)
+            else:
+                try:
+                    await run_in_threadpool(sync_upserted_lead_to_zoho, zoho_payload)
+                except Exception:
+                    logger.exception("Error syncing upserted lead %s to Zoho CRM", lead_id)
+
+    return upserted_list
+
+
+@app.get("/api/admin/upsert-leads", dependencies=[Depends(require_admin)])
+async def admin_list_upsert_leads(background_tasks: BackgroundTasks):
+    return await sync_and_save_upserted_leads(app.state, background_tasks)
+
+
+class BatchDeleteRequest(BaseModel):
+    items: list[dict]  # [{"id": str, "entity": "contact" | "enquiry" | "upsert"}]
+
+
+@app.post("/api/admin/leads/batch-delete", dependencies=[Depends(require_admin)])
+async def admin_batch_delete_leads(payload: BatchDeleteRequest, background_tasks: BackgroundTasks):
+    contact_ids = [oid(x["id"]) for x in payload.items if x.get("entity") == "contact" and x.get("id")]
+    enquiry_ids = [oid(x["id"]) for x in payload.items if x.get("entity") == "enquiry" and x.get("id")]
+    upsert_ids = [x["id"] for x in payload.items if x.get("entity") == "upsert" and x.get("id")]
+    deleted_count = 0
+    if contact_ids:
+        c_res = await app.state.contacts.delete_many({"_id": {"$in": contact_ids}})
+        deleted_count += c_res.deleted_count
+    if enquiry_ids:
+        e_res = await app.state.enquiries.delete_many({"_id": {"$in": enquiry_ids}})
+        deleted_count += e_res.deleted_count
+    if upsert_ids:
+        u_res = await app.state.upserted_leads.delete_many({"id": {"$in": upsert_ids}})
+        deleted_count += u_res.deleted_count
+    background_tasks.add_task(sync_and_save_upserted_leads, app.state)
+    return {"message": f"Successfully deleted {deleted_count} lead(s).", "deleted_count": deleted_count}
 
 
 @app.post("/api/admin/sync-zoho", dependencies=[Depends(require_admin)])
@@ -771,6 +1397,8 @@ async def admin_sync_zoho():
 
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+app.mount("/image", StaticFiles(directory=BASE_DIR / "image"), name="image")
+app.mount("/images", StaticFiles(directory=BASE_DIR / "image"), name="images")
 
 
 @app.get("/", include_in_schema=False)
@@ -783,27 +1411,459 @@ async def enquiry_page():
     return FileResponse(BASE_DIR / "static" / "enquiry.html")
 
 
+def send_whatsapp_thankyou_template(
+    to_phone: str,
+    name: str,
+    email: str,
+) -> str | None:
+    """Send an approved Twilio WhatsApp template to customer using {{1}} and {{2}} in background."""
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    from_number = os.getenv("TWILIO_WHATSAPP_FROM", "+14155238886").strip()
+    content_sid = os.getenv("TWILIO_THANKYOU_SID", os.getenv("TWILIO_WHATSAPP_START_TEMPLATE_SID", "")).strip()
+
+    if not (account_sid and auth_token and from_number):
+        logger.error("Twilio credentials or sender not configured; WhatsApp thank-you template skipped.")
+        return None
+
+    clean_phone = re.sub(r"^whatsapp:", "", to_phone.strip(), flags=re.IGNORECASE)
+    from_sender = from_number if from_number.startswith("whatsapp:") else f"whatsapp:{from_number}"
+    to_recipient = f"whatsapp:{clean_phone}"
+
+    # Template variables: {{1}} = name, {{2}} = email
+    content_variables = json.dumps({"1": name, "2": email})
+
+    try:
+        from whatsapp_bot import _get_twilio_client
+        client, detected_from = _get_twilio_client()
+        if not client:
+            from twilio.rest import Client
+            client = Client(account_sid, auth_token)
+        if detected_from:
+            from_sender = f"whatsapp:{detected_from}"
+
+        if content_sid and re.fullmatch(r"HX[0-9a-fA-F]{32}", content_sid):
+            msg = client.messages.create(
+                from_=from_sender,
+                to=to_recipient,
+                content_sid=content_sid,
+                content_variables=content_variables,
+            )
+            logger.info(
+                "Twilio WhatsApp thank-you template sent successfully to %s (SID: %s, Template: %s)",
+                clean_phone,
+                msg.sid,
+                content_sid,
+            )
+            return msg.sid
+        else:
+            body = f"Hi {name}, thank you for contacting us! We received your enquiry for {email} and our team will get in touch shortly."
+            msg = client.messages.create(
+                from_=from_sender,
+                to=to_recipient,
+                body=body,
+            )
+            logger.info("Twilio WhatsApp thank-you message sent to %s (SID: %s)", clean_phone, msg.sid)
+            return msg.sid
+    except Exception as exc:
+        logger.error(
+            "Failed to send Twilio WhatsApp thank-you message to %s: %s (code=%s)",
+            clean_phone,
+            exc,
+            getattr(exc, "code", None),
+        )
+        return None
+
+
+@app.post("/enquiry")
+async def post_enquiry_form(
+    request: Request,
+    background_tasks: BackgroundTasks,
+):
+    """Receive enquiry, validate consent and E.164 phone via phonenumbers, save to MongoDB,
+    dispatch Twilio WhatsApp thank-you template in background, and 303 redirect to /thank-you.
+    """
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON format.")
+    else:
+        form_data = await request.form()
+        data = dict(form_data)
+
+    first_name = str(data.get("first_name") or data.get("FirstName") or "").strip()
+    last_name = str(data.get("last_name") or data.get("LastName") or data.get("Last Name") or "").strip()
+    email = str(data.get("email") or data.get("Email") or "").strip().lower()
+    country_code = str(data.get("country_code") or "+91").strip() or "+91"
+    raw_phone = str(data.get("phone") or data.get("PhoneNumber") or data.get("mobile_number") or data.get("contact_number") or "").strip()
+    query = str(data.get("query") or data.get("requirement") or data.get("remarks_requirements") or data.get("remarks") or "").strip()
+
+    # 1. Reject if consent is not checked
+    raw_consent = data.get("whatsapp_consent")
+    if raw_consent is None:
+        raw_consent = data.get("whatsapp_opt_in")
+
+    has_consent = False
+    if isinstance(raw_consent, bool):
+        has_consent = raw_consent
+    elif isinstance(raw_consent, (int, float)):
+        has_consent = bool(raw_consent)
+    elif isinstance(raw_consent, str):
+        has_consent = raw_consent.strip().lower() in ("true", "1", "on", "yes", "checked")
+
+    if not has_consent:
+        raise HTTPException(
+            status_code=422,
+            detail="WhatsApp consent is required to submit your enquiry.",
+        )
+
+    # 2. Reject if phone number is invalid (use phonenumbers, E.164 format)
+    if not raw_phone:
+        raise HTTPException(status_code=422, detail="Phone number is required.")
+
+    clean_cc = country_code if country_code.startswith("+") else f"+{country_code}"
+    digits_and_plus = "".join(c for c in raw_phone if c.isdigit() or c == "+")
+    if digits_and_plus.startswith("+"):
+        num_to_parse = digits_and_plus
+    else:
+        num_to_parse = f"{clean_cc}{digits_and_plus.lstrip('0')}"
+
+    try:
+        parsed_num = phonenumbers.parse(num_to_parse, None)
+        if not phonenumbers.is_valid_number(parsed_num):
+            raise HTTPException(
+                status_code=422,
+                detail="The phone number is not valid for the selected country code.",
+            )
+        e164_phone = phonenumbers.format_number(parsed_num, phonenumbers.PhoneNumberFormat.E164)
+    except NumberParseException:
+        raise HTTPException(status_code=422, detail="Invalid phone number format.")
+
+    if not first_name or len(first_name) < 2:
+        raise HTTPException(status_code=422, detail="First name must be at least 2 characters.")
+    if not email or "@" not in email or "." not in email:
+        raise HTTPException(status_code=422, detail="A valid email address is required.")
+
+    location_pref = str(data.get("location_preference") or "").strip()
+    bhk_pref = str(data.get("bhk_preference") or "").strip()
+    budget_rng = str(data.get("budget_range") or "").strip()
+    plan_buy = str(data.get("planning_to_buy") or "").strip()
+    pay_opt = str(data.get("payment_option") or "").strip()
+
+    full_name = f"{first_name} {last_name}".strip()
+
+    # 3. Save the enquiry to MongoDB
+    doc = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "full_name": full_name,
+        "email": email,
+        "country_code": clean_cc,
+        "phone": e164_phone,
+        "mobile_number": e164_phone,
+        "contact_number": e164_phone,
+        "location_preference": location_pref,
+        "bhk_preference": bhk_pref,
+        "budget_range": budget_rng,
+        "planning_to_buy": plan_buy,
+        "payment_option": pay_opt,
+        "query": query,
+        "requirement": query,
+        "remarks_requirements": query,
+        "whatsapp_consent": True,
+        "whatsapp_opt_in": True,
+        "whatsapp_opt_in_source": "enquiry_form_whatsapp_consent",
+        "whatsapp_opt_in_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(timezone.utc),
+        "source": "Enquiry form with WhatsApp",
+    }
+    try:
+        result = await app.state.enquiries.insert_one(doc)
+    except PyMongoError:
+        raise HTTPException(status_code=500, detail="Could not save your enquiry. Please try again.")
+
+    try:
+        await app.state.contacts.update_one(
+            {"email": email},
+            {"$set": doc},
+            upsert=True,
+        )
+    except Exception:
+        pass
+
+    # Pre-populate WhatsApp conversation with complete submitted form data
+    enquiry_answers = {
+        "full_name": full_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": email,
+        "mobile_number": e164_phone,
+        "location_preference": location_pref,
+        "bhk_preference": bhk_pref,
+        "budget_range": budget_rng,
+        "planning_to_buy": plan_buy,
+        "payment_option": pay_opt,
+        "remarks_requirements": query,
+    }
+    now_utc = datetime.now(timezone.utc)
+    try:
+        await app.state.whatsapp_conversations.update_one(
+            {"phone": e164_phone},
+            {
+                "$set": {
+                    "phone": e164_phone,
+                    "status": "awaiting_customer_start",
+                    "stage": "q_ai_flow",
+                    "answers": enquiry_answers,
+                    "form_requirement": query,
+                    "updated_at": now_utc,
+                },
+                "$setOnInsert": {
+                    "created_at": now_utc,
+                },
+            },
+            upsert=True,
+        )
+    except Exception:
+        logger.warning("Could not pre-populate whatsapp_conversations for %s", e164_phone)
+
+    # 4. Background task: AI qualification, Zoho CRM sync (Hot leads only), and WhatsApp notification
+    customer_display_name = full_name or first_name
+    background_tasks.add_task(
+        process_property_enquiry_submission,
+        app.state,
+        doc,
+        enquiry_answers,
+        str(result.inserted_id),
+        e164_phone,
+        first_name,
+        email,
+        customer_display_name,
+        location_pref,
+        background_tasks,
+    )
+
+    # 5. Redirect browser (303) to /thank-you?name=...
+    redirect_target = f"/thank-you?name={quote_plus(customer_display_name)}"
+    return RedirectResponse(url=redirect_target, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.get("/thank-you", response_class=HTMLResponse, include_in_schema=False)
+async def thank_you_page(name: str = Query(default="Valued Client")):
+    safe_name = html.escape(name.strip() or "Valued Client")
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thank You | Profilent Property CRM</title>
+  <link rel="icon" type="image/png" href="/image/profilent-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background: #F4F7F9;
+      color: #1E293B;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }}
+    .card {{
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 44px 32px;
+      max-width: 520px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08);
+      animation: fadeIn 0.4s ease-out;
+    }}
+    @keyframes fadeIn {{
+      from {{ opacity: 0; transform: translateY(12px); }}
+      to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    .logo-wrap {{
+      margin-bottom: 24px;
+    }}
+    .logo-wrap img {{
+      height: 48px;
+      width: auto;
+      object-fit: contain;
+    }}
+    .icon-badge {{
+      width: 72px;
+      height: 72px;
+      background: #E6F7F8;
+      color: #2A9DAE;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      margin-bottom: 20px;
+      border: 2px solid #B8E4E9;
+    }}
+    h1 {{
+      font-size: 25px;
+      font-weight: 800;
+      color: #0F172A;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }}
+    p.lead {{
+      font-size: 15px;
+      color: #475569;
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }}
+    .highlight-name {{
+      color: #2A9DAE;
+      font-weight: 700;
+    }}
+    .wa-card {{
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 26px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+    }}
+    .wa-card i {{
+      color: #16A34A;
+      font-size: 24px;
+      flex-shrink: 0;
+    }}
+    .wa-text {{
+      font-size: 13.5px;
+      color: #15803D;
+      line-height: 1.45;
+    }}
+    .actions {{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }}
+    .btn {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 13px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }}
+    .btn-primary {{
+      background: #2A9DAE;
+      color: #FFFFFF;
+      box-shadow: 0 4px 14px rgba(42, 157, 174, 0.3);
+    }}
+    .btn-primary:hover {{
+      background: #238594;
+    }}
+    .btn-secondary {{
+      background: #F8FAFC;
+      color: #475569;
+      border: 1px solid #CBD5E1;
+    }}
+    .btn-secondary:hover {{
+      background: #E2E8F0;
+      color: #0F172A;
+    }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-wrap">
+      <img src="/image/profilent-logo.png" alt="Profilent Logo" onerror="this.onerror=null;this.src='/image/profilent-logo-original.png';">
+    </div>
+    <div class="icon-badge">
+      <i class="bi bi-check-lg"></i>
+    </div>
+    <h1>Thank You, <span class="highlight-name">{safe_name}</span>!</h1>
+    <p class="lead">Your enquiry has been received successfully. Our dedicated property advisors will review your requirements and reach out to you shortly.</p>
+    <div class="wa-card">
+      <i class="bi bi-whatsapp"></i>
+      <div class="wa-text">
+        <strong>WhatsApp Confirmation Dispatched:</strong><br>
+        We have sent a thank-you confirmation to your WhatsApp number.
+      </div>
+    </div>
+    <div class="actions">
+      <a href="/" class="btn btn-primary"><i class="bi bi-house-door-fill"></i> Back to Home</a>
+      <a href="/enquiry" class="btn btn-secondary"><i class="bi bi-pencil-square"></i> Submit Another Enquiry</a>
+    </div>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html_content)
+
+
+@app.get("/workflow", include_in_schema=False)
+async def workflow_chart_page():
+    return FileResponse(BASE_DIR / "static" / "workflow-chart.html")
+
+
 @app.get("/whatsapp", include_in_schema=False)
-async def start_whatsapp_chat(prefill: bool = True):
+async def start_whatsapp_chat(request: Request, prefill: bool = True):
     # The visitor starts the chat, which also supports Twilio Sandbox testing.
     target = WHATSAPP_BUSINESS_NUMBER or TWILIO_WHATSAPP_FROM
     number = re.sub(r"\D", "", target)
     if not number:
         raise HTTPException(status_code=503, detail="WhatsApp chat is not configured")
-    # Form submissions start the opted-in questionnaire via Twilio. The chat
-    # link may prefill Hi; the webhook treats it as a continuation below.
-    target_url = f"https://wa.me/{number}"
-    if prefill:
-        target_url += "?text=Hi"
-    return RedirectResponse(target_url, status_code=307)
+    
+    text_param = "Hi" if prefill else ""
+    app_url = f"whatsapp://send?phone={number}&text={text_param}"
+    web_url = f"https://web.whatsapp.com/send?phone={number}&text={text_param}"
+    
+    html = f"""<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <title>Opening WhatsApp...</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; text-align: center; }}
+        .card {{ background: #fff; padding: 36px 28px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); max-width: 420px; width: 90%; }}
+        .btn {{ display: inline-block; background: #25D366; color: #fff; font-weight: 600; padding: 12px 24px; border-radius: 10px; text-decoration: none; margin-top: 16px; }}
+        .btn-web {{ background: #f1f5f9; color: #334155; margin-top: 8px; border: 1px solid #cbd5e1; }}
+      </style>
+      <script>
+        // Trigger WhatsApp Application directly on phone & desktop
+        window.location.href = "{app_url}";
+      </script>
+    </head>
+    <body>
+      <div class="card">
+        <h2>Opening WhatsApp...</h2>
+        <p>Launching WhatsApp application on your device.</p>
+        <a href="{app_url}" class="btn">Open WhatsApp App</a><br>
+        <a href="{web_url}" class="btn btn-web">Open WhatsApp Web</a>
+      </div>
+    </body>
+    </html>"""
+    return HTMLResponse(content=html)
 
 
 @app.get("/schedule", include_in_schema=False)
 async def schedule_page():
-    return FileResponse(
-        BASE_DIR / "static" / "schedule.html",
-        headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
-    )
+    return RedirectResponse(CALENDLY_URL, status_code=307)
 
 
 @app.get("/booking/redirect", include_in_schema=False)
@@ -878,29 +1938,218 @@ async def booking_redirect(
         status_code=302,
     )
 
+_last_env_mtime = 0.0
+
+def _check_and_reload_env() -> None:
+    """Reload .env only when modified on disk, avoiding repeated disk reads on hot path."""
+    global _last_env_mtime
+    try:
+        env_file = BASE_DIR / ".env"
+        if env_file.exists():
+            mtime = env_file.stat().st_mtime
+            if mtime > _last_env_mtime:
+                load_dotenv(env_file, override=True)
+                _last_env_mtime = mtime
+    except Exception:
+        pass
+
+
+async def complete_and_qualify_whatsapp_lead(
+    request: Request,
+    conversation: dict,
+    answers: dict,
+    background_tasks: BackgroundTasks,
+    recent_messages: list | None = None,
+) -> tuple[dict, str]:
+    """Analyze completed WhatsApp questionnaire with AI, save to MongoDB/Admin,
+    and automatically sync to Zoho CRM ONLY if the AI determines it is a HOT lead.
+    Warm and Cold leads are kept in MongoDB / admin.html only.
+    """
+    now = datetime.now(timezone.utc)
+    conversation_id = str(conversation.get("_id") or "")
+    full_name = answers.get("full_name", "")
+    name_parts = full_name.split(maxsplit=1)
+    first_name = answers.get("first_name") or (name_parts[0] if name_parts else "")
+    last_name = answers.get("last_name") or (name_parts[1] if len(name_parts) > 1 else "")
+    email = answers.get("email", "")
+    phone = str(answers.get("mobile_number") or conversation.get("phone") or "")
+
+    lead = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "full_name": full_name or f"{first_name} {last_name}".strip(),
+        "email": email,
+        "mobile_number": phone,
+        "location_preference": answers.get("location_preference", ""),
+        "planning_to_buy": answers.get("planning_to_buy", ""),
+        "budget_range": answers.get("budget_range", ""),
+        "payment_option": answers.get("payment_option", ""),
+        "bhk_preference": answers.get("bhk_preference", ""),
+        "remarks_requirements": answers.get("remarks_requirements", "") or answers.get("requirement", ""),
+        "requirement": answers.get("remarks_requirements", "") or answers.get("requirement", ""),
+        "requirement_summary": requirements_summary(answers),
+        "whatsapp_number": phone,
+        "whatsapp_conversation_id": conversation_id,
+        "contact_id": conversation.get("contact_id"),
+        "source": "WhatsApp property questionnaire",
+        "created_at": conversation.get("created_at", now),
+        "completed_at": now,
+    }
+
+    # 1. AI Analysis on completed customer questionnaire
+    ai_eval = await run_in_threadpool(analyze_lead_with_ai, lead, recent_messages)
+    rating = ai_eval.get("rating", "Warm")
+    score = ai_eval.get("score", 50)
+    is_hot = ai_eval.get("is_hot", False)
+    summary_ai = ai_eval.get("summary", "")
+
+    lead["lead_rating"] = rating
+    lead["ai_rating"] = rating
+    lead["lead_score"] = score
+    lead["ai_analysis"] = summary_ai
+    lead["ai_triggers"] = ai_eval.get("triggers", [])
+    lead["lead_evaluated_at"] = now
+
+    if is_hot:
+        lead["zoho_sync_status"] = "pending"
+        lead["zoho_sync_reason"] = f"AI classified Hot lead (Score: {score}/100)"
+    else:
+        lead["zoho_sync_status"] = "skipped_cold"
+        lead["zoho_sync_reason"] = f"Saved in Admin only (AI classified as {rating} lead, score {score}/100)"
+        lead["zoho_lead_id"] = None
+
+    # 2. Save in admin.html (MongoDB enquiries collection)
+    try:
+        lead_result = await request.app.state.enquiries.update_one(
+            {"whatsapp_conversation_id": conversation_id},
+            {"$set": lead},
+            upsert=True,
+        )
+    except Exception:
+        logger.exception("Could not save AI qualified lead to enquiries")
+        lead_result = None
+
+    local_id = str((lead_result.upserted_id if lead_result else None) or conversation_id)
+    lead["local_id"] = local_id
+
+    # 3. Save / Update contact in admin.html (MongoDB contacts collection)
+    contact_id = conversation.get("contact_id")
+    if contact_id:
+        try:
+            await request.app.state.contacts.update_one(
+                {"_id": ObjectId(contact_id)},
+                {"$set": {
+                    "whatsapp_answers": answers,
+                    "whatsapp_flow_status": "complete",
+                    "lead_rating": rating,
+                    "lead_score": score,
+                    "ai_analysis": summary_ai,
+                    "zoho_sync_status": lead["zoho_sync_status"],
+                    "zoho_sync_reason": lead["zoho_sync_reason"],
+                    "lead_evaluated_at": now,
+                }},
+            )
+        except Exception:
+            logger.exception("Could not attach WhatsApp answers to contact %s", contact_id)
+
+    # 4. Update WhatsApp conversation state
+    conv_update = {
+        "answers": answers,
+        "status": "complete",
+        "stage": "complete",
+        "property_lead_id": str(lead_result.upserted_id) if lead_result and lead_result.upserted_id else None,
+        "updated_at": now,
+    }
+    if recent_messages:
+        conv_update["messages"] = recent_messages
+    await request.app.state.whatsapp_conversations.update_one(
+        {"_id": conversation["_id"]},
+        {"$set": conv_update},
+    )
+
+    # 5. Zoho CRM Sync Decision: STRICTLY HOT LEADS ONLY
+    background_tasks.add_task(sync_and_save_upserted_leads, request.app.state)
+    if is_hot:
+        logger.info("AI Lead Analysis: Lead %s classified as HOT (%d/100). Auto-syncing to Zoho CRM.", phone, score)
+        background_tasks.add_task(
+            sync_zoho_lead,
+            {
+                **lead,
+                "full_name": lead["full_name"],
+                "source": "WhatsApp property questionnaire",
+                "local_id": local_id,
+            },
+        )
+    else:
+        logger.info("AI Lead Analysis: Lead %s classified as %s (%d/100). Saved in Admin only.", phone, rating, score)
+
+    # 6. Salesperson notification
+    background_tasks.add_task(sync_and_save_upserted_leads, app.state)
+    background_tasks.add_task(
+        send_salesperson_notification,
+        f"Completed WhatsApp property enquiry ({rating} Lead)",
+        {
+            "Name": lead["full_name"],
+            "Email": lead["email"],
+            "Contact number": lead["mobile_number"],
+            "Lead Rating": f"{rating} (Score: {score}/100)",
+            "AI Analysis": summary_ai,
+            "Location preference": lead["location_preference"],
+            "Buying timeline": lead["planning_to_buy"],
+            "Budget": lead["budget_range"],
+            "Payment preference": lead["payment_option"],
+            "Property type": lead["bhk_preference"],
+            "Conversation summary": lead["requirement_summary"],
+            "Special requirements": lead["remarks_requirements"],
+            "WhatsApp conversation ID": conversation_id,
+            "Zoho CRM Status": "Auto-syncing to Zoho CRM" if is_hot else "Saved in Admin only",
+        },
+    )
+
+    return lead, local_id
+
+
 @app.post("/webhooks/whatsapp")
 async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
-    form = await request.form()
-    params = dict(form)
-    if not TWILIO_AUTH_TOKEN or not PUBLIC_BASE_URL:
+    try:
+        form = await request.form()
+        params = dict(form)
+    except Exception:
+        # Fallback to standard library urllib form parsing if python-multipart is absent
+        body_bytes = await request.body()
+        from urllib.parse import parse_qs
+        parsed = parse_qs(body_bytes.decode("utf-8", errors="replace"))
+        params = {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
+        form = params
+    
+    # Reload environment only when .env was modified on disk
+    _check_and_reload_env()
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip() or TWILIO_AUTH_TOKEN
+    public_base_url = (os.getenv("PUBLIC_BASE_URL", "").rstrip("/") or PUBLIC_BASE_URL).rstrip("/")
+    if not auth_token or not public_base_url:
         raise HTTPException(status_code=503, detail="Twilio webhook is not configured")
 
-    signature = request.headers.get("X-Twilio-Signature", "")
-    webhook_url = f"{PUBLIC_BASE_URL}/webhooks/whatsapp"
+    validate_sig = os.getenv("TWILIO_VALIDATE_SIGNATURE", "false").strip().lower() in ("true", "1", "yes")
+    if validate_sig:
+        signature = request.headers.get("X-Twilio-Signature", "")
+        webhook_url = f"{public_base_url}/webhooks/whatsapp"
 
-    try:
-        valid = RequestValidator(TWILIO_AUTH_TOKEN).validate(
-            webhook_url,
-            params,
-            signature,
-        )
-        if not valid:
+        try:
+            valid = RequestValidator(auth_token).validate(
+                webhook_url,
+                params,
+                signature,
+            )
+            if not valid:
+                logger.warning("Twilio signature validation failed for %s", webhook_url)
+                raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Twilio webhook validation failed")
             raise HTTPException(status_code=403, detail="Invalid Twilio signature")
-    except HTTPException:
-        raise
-    except Exception:
-        logger.exception("Twilio webhook validation failed")
-        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+    else:
+        logger.debug("Twilio signature validation bypassed (dev/ngrok mode).")
 
     sender = str(form.get("From", ""))
     if not sender.startswith("whatsapp:"):
@@ -917,23 +2166,81 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
         bool(conversation),
     )
     if not conversation:
-        # This also lets the existing wa.me link start a customer-initiated chat.
-        await conversations.insert_one({
+        # Check if customer submitted an enquiry or contact form previously with this phone
+        clean_digits = re.sub(r"\D", "", phone)[-10:]
+        recent_enquiry = await request.app.state.enquiries.find_one(
+            {"$or": [
+                {"mobile_number": phone},
+                {"mobile_number": {"$regex": clean_digits}},
+                {"contact_number": phone},
+                {"contact_number": {"$regex": clean_digits}},
+                {"phone": phone},
+                {"phone": {"$regex": clean_digits}},
+            ]},
+            sort=[("created_at", -1)],
+        )
+        recent_contact = None
+        if not recent_enquiry:
+            recent_contact = await request.app.state.contacts.find_one(
+                {"$or": [
+                    {"contact_number": phone},
+                    {"contact_number": {"$regex": clean_digits}},
+                    {"mobile_number": phone},
+                    {"mobile_number": {"$regex": clean_digits}},
+                    {"phone": phone},
+                    {"phone": {"$regex": clean_digits}},
+                ]},
+                sort=[("created_at", -1)],
+            )
+
+        answers_init = {}
+        req_init = ""
+        if recent_enquiry:
+            fn = recent_enquiry.get("first_name", "")
+            ln = recent_enquiry.get("last_name", "")
+            full_n = recent_enquiry.get("full_name") or f"{fn} {ln}".strip()
+            req_init = recent_enquiry.get("requirement") or recent_enquiry.get("remarks_requirements") or recent_enquiry.get("query") or ""
+            answers_init = {
+                "full_name": full_n,
+                "first_name": fn or (full_n.split()[0] if full_n else ""),
+                "last_name": ln,
+                "email": recent_enquiry.get("email", ""),
+                "mobile_number": phone,
+                "location_preference": recent_enquiry.get("location_preference", ""),
+                "bhk_preference": recent_enquiry.get("bhk_preference", ""),
+                "budget_range": recent_enquiry.get("budget_range", ""),
+                "planning_to_buy": recent_enquiry.get("planning_to_buy", ""),
+                "payment_option": recent_enquiry.get("payment_option", ""),
+                "remarks_requirements": req_init,
+            }
+        elif recent_contact:
+            fn = recent_contact.get("first_name", "")
+            ln = recent_contact.get("last_name", "")
+            full_n = recent_contact.get("full_name") or f"{fn} {ln}".strip()
+            req_init = recent_contact.get("requirement") or ""
+            answers_init = {
+                "full_name": full_n,
+                "first_name": fn or (full_n.split()[0] if full_n else ""),
+                "last_name": ln,
+                "email": recent_contact.get("email", ""),
+                "mobile_number": phone,
+                "form_requirement": req_init,
+            }
+
+        conv_doc = {
             "phone": phone,
-            "stage": "q5_location",
-            "answers": {},
-            "status": "in_progress",
+            "stage": "q_ai_flow" if is_ai_configured() else "q5_location",
+            "answers": answers_init,
+            "form_requirement": req_init,
+            "status": "awaiting_customer_start" if answers_init else "in_progress",
             "created_at": now,
             "updated_at": now,
             "last_inbound_at": now,
-        })
-        if not TWILIO_WHATSAPP_SANDBOX:
-            # Use the REST API for production senders so Twilio's outbound SID
-            # and any delivery rejection are visible in the application logs.
-            background_tasks.add_task(send_questionnaire_text, phone, TEXT_PROMPTS["q5_location"])
-            return twiml()
-        return twiml(TEXT_PROMPTS["q5_location"])
-    await conversations.update_one({"phone": phone}, {"$set": {"last_inbound_at": now}})
+        }
+        await conversations.insert_one(conv_doc)
+        conversation = conv_doc
+    else:
+        await conversations.update_one({"phone": phone}, {"$set": {"last_inbound_at": now}})
 
     if text.upper() == "STOP":
         await conversations.update_one(
@@ -941,42 +2248,228 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             {"$set": {"status": "stopped", "updated_at": datetime.now(timezone.utc)}},
         )
         return twiml("You have been opted out of this WhatsApp conversation.")
-    greeting = text.upper() in {"HI", "HELLO", "START", "RESTART", "RESET"}
-    if greeting and conversation.get("status") == "awaiting_location":
-        await conversations.update_one(
-            {"phone": phone},
-            {"$set": {"stage": "q5_location", "status": "in_progress", "updated_at": now}},
-        )
-        return twiml(TEXT_PROMPTS["q5_location"])
-    if greeting and conversation.get("status") != "awaiting_customer_start":
-        await conversations.update_one(
-            {"phone": phone},
-            {"$set": {
-                "stage": "q5_location",
-                "status": "in_progress",
-                "updated_at": datetime.now(timezone.utc),
-            }},
-        )
-        if not TWILIO_WHATSAPP_SANDBOX:
-            background_tasks.add_task(send_questionnaire_text, phone, TEXT_PROMPTS["q5_location"])
-            return twiml()
-        return twiml(TEXT_PROMPTS["q5_location"])
 
-    if conversation.get("status") == "complete":
-        return twiml("Your enquiry has already been recorded. Our team will follow up with you shortly.")
-    if conversation.get("status") == "awaiting_customer_start":
+    greeting = (
+        text.upper() in {"HI", "HELLO", "START", "RESTART", "RESET", "NAMASTE", "NAMASKAR"}
+        or text.upper().startswith("HI")
+        or text.upper().startswith("HELLO")
+        or "नमस्ते" in text
+        or "नमस्कार" in text
+    )
+    if greeting:
+        answers = conversation.get("answers", {})
+        current_lang = answers.get("language", "en")
+        lang = detect_language(text, current_lang=current_lang)
+        answers["language"] = lang
+        first_name = answers.get("first_name") or (answers.get("full_name", "").split()[0] if answers.get("full_name") else "there")
+        core_fields = ["location_preference", "bhk_preference", "budget_range", "planning_to_buy", "payment_option"]
+        all_core_known = all(bool(answers.get(f)) for f in core_fields)
+
+        if lang == "hi":
+            greet_line = f"नमस्ते {first_name}! Profilent में आपका स्वागत है।" if first_name and first_name != "there" else "नमस्ते! Profilent में आपका स्वागत है।"
+        elif lang == "hinglish":
+            greet_line = f"Namaste {first_name}! Welcome to Profilent." if first_name and first_name != "there" else "Namaste! Welcome to Profilent."
+        else:
+            greet_line = f"Hi {first_name}! Welcome to Profilent." if first_name and first_name != "there" else "Hi! Welcome to Profilent."
+
+        is_reset_cmd = text.upper() in {"START", "RESTART", "RESET"}
+        if is_reset_cmd:
+            answers = {
+                "full_name": answers.get("full_name", ""),
+                "first_name": first_name,
+                "last_name": answers.get("last_name", ""),
+                "email": answers.get("email", ""),
+                "mobile_number": phone,
+                "language": lang,
+            }
+            await conversations.update_one(
+                {"phone": phone},
+                {
+                    "$set": {
+                        "status": "in_progress",
+                        "stage": "q_ai_flow",
+                        "answers": answers,
+                        "messages": [],
+                        "updated_at": now,
+                    },
+                    "$unset": {
+                        "completed_at": "",
+                        "property_lead_id": "",
+                        "schedule_url": "",
+                    },
+                },
+            )
+            q1_prompt = get_question_prompt("location_preference", lang=lang)
+            welcome_msg = f"{greet_line}\n\n{q1_prompt}"
+            return twiml(welcome_msg)
+
+        # Only send completion summary if all 5 core fields are truly known
+        if all_core_known:
+            welcome_msg = format_completion_summary_message(
+                answers,
+                first_name=first_name,
+                schedule_url=schedule_page_url(),
+                lang=lang,
+            )
+            await conversations.update_one(
+                {"phone": phone},
+                {"$set": {"status": "complete", "stage": "complete", "answers.language": lang, "updated_at": now}},
+            )
+            return twiml(welcome_msg)
+
+        # Find the first missing core question
+        missing_slots = [f for f in core_fields if not answers.get(f)]
+        next_slot = missing_slots[0] if missing_slots else "location_preference"
+        q_prompt = get_question_prompt(next_slot, lang=lang)
+
+        if next_slot == "location_preference" and answers.get("remarks_requirements"):
+            welcome_msg = (
+                f"{greet_line}\n"
+                f"We received your enquiry: \"{answers.get('remarks_requirements')}\".\n\n"
+                f"{q_prompt}"
+            )
+        else:
+            welcome_msg = f"{greet_line}\n\n{q_prompt}"
+
         await conversations.update_one(
             {"phone": phone},
-            {"$set": {"status": "in_progress", "updated_at": datetime.now(timezone.utc)}},
+            {"$set": {"status": "in_progress", "stage": "q_ai_flow", "answers.language": lang, "updated_at": now}},
         )
-        if greeting:
-            answers = conversation.get("answers", {})
-            full_name = answers.get("full_name") or "there"
-            return twiml(start_message_text(full_name, answers.get("email", ""), answers.get("mobile_number", phone), conversation.get("form_requirement", "")))
+        return twiml(welcome_msg)
+
+    if conversation.get("status") == "complete" and not is_ai_configured():
+        answers = conversation.get("answers", {})
+        first_name = answers.get("first_name") or "there"
+        txt_lower = text.lower()
+        from conversation_ai import is_inappropriate_message, get_inappropriate_message_redirection
+        if is_inappropriate_message(text):
+            return twiml(get_inappropriate_message_redirection(answers))
+        elif any(w in txt_lower for w in ["schedule", "meeting", "calendly", "appointment", "consultation", "book slot", "slot"]):
+            from whatsapp_bot import build_prefilled_calendly_url
+            raw_url = conversation.get("schedule_url") or os.getenv("CALENDLY_URL", "https://calendly.com/shailendra-profilent/30min")
+            cal_url = build_prefilled_calendly_url(raw_url, {**answers, "phone": phone})
+            return twiml(
+                "📅 *Schedule Your 1-on-1 Consultation:*\n\n"
+                "You can select a date and convenient time slot for a personalized consultation or site visit here:\n"
+                f"👉 {cal_url}\n\n"
+                "Your details are pre-filled so you just need to pick your time slot!"
+            )
+        elif any(w in txt_lower for w in ["job", "work", "naukri", "haldwani"]):
+            return twiml(
+                "Congratulations on your job opportunity in Haldwani! 🌟 "
+                "While Profilent specializes in real estate, our dedicated property team will gladly assist you with rental or residential accommodation near your workplace.\n\n"
+                "• 1 BHK / 2 BHK Rental Flat\n"
+                "• Independent House for Rent or Purchase\n"
+                "• Residential Plot to build your own home\n\n"
+                "Which option works best for you?"
+            )
+        elif any(w in txt_lower for w in ["house", "villa", "makan", "ghar"]):
+            return twiml(
+                "I've noted down your preference for an Independent House / Villa in Haldwani / Uttarakhand. 🏡\n\n"
+                "• Rampur Road (Prime connectivity)\n"
+                "• Kaladhungi Road (Peaceful residential hub)\n"
+                "• Bithoria / Mukhani (Premium locality)\n\n"
+                "Which area or budget range would you like us to shortlist for you?"
+            )
+        elif any(w in txt_lower for w in ["option", "options", "suggest", "choice", "help"]):
+            return twiml(
+                "Here are popular property options currently available in Haldwani:\n\n"
+                "• 1 BHK / 2 BHK Modern Apartments\n"
+                "• 3 BHK / 4 BHK Luxury Independent Villas\n"
+                "• Residential Plots (Rampur Rd / Kaladhungi Rd)\n"
+                "• Commercial & Office Spaces\n\n"
+                "Which of these would you like our specialist team to share details for?"
+            )
+        from whatsapp_bot import build_prefilled_calendly_url
+        cal_url = build_prefilled_calendly_url(conversation.get("schedule_url") or schedule_page_url(), {**answers, "phone": phone})
+        return twiml(
+            f"Understood. 🏡 I've noted your message: \"{text}\". "
+            "Our property specialist is reviewing your request and will reach out with customized options.\n\n"
+            f"📅 *Schedule a 1-on-1 Consultation / Site Visit:*\n👉 {cal_url}"
+        )
 
     stage = conversation.get("stage", "q1_first_name")
     answers = conversation.get("answers", {})
     logger.info("WhatsApp questionnaire reply (stage=%s, status=%s)", stage, conversation.get("status"))
+
+    # -------------------------------------------------------------
+    # Hybrid Conversational AI (OpenAI Agent + Quick Options)
+    # -------------------------------------------------------------
+    if is_ai_configured() and stage not in {"q1_first_name", "q2_last_name", "q3_email", "q4_mobile", "q4_mobile_other"}:
+        ai_turn = await run_in_threadpool(
+            execute_hybrid_ai_turn,
+            conversation,
+            text,
+            phone,
+            schedule_page_url(),
+        )
+        if ai_turn:
+            reply_text = ai_turn["reply_text"]
+            updated_answers = ai_turn["updated_answers"]
+            updated_messages = ai_turn["updated_messages"]
+            is_complete = ai_turn["is_complete"]
+            is_followup = ai_turn.get("is_followup", False)
+
+            if is_complete:
+                await conversations.update_one(
+                    {"_id": conversation["_id"]},
+                    {"$set": {
+                        "answers": updated_answers,
+                        "messages": updated_messages,
+                        "status": "complete",
+                        "stage": "complete",
+                        "updated_at": now,
+                    }},
+                )
+                background_tasks.add_task(
+                    complete_and_qualify_whatsapp_lead,
+                    request,
+                    conversation,
+                    updated_answers,
+                    background_tasks,
+                    recent_messages=updated_messages,
+                )
+            elif is_followup:
+                # Continuous follow-up chat after qualification
+                await conversations.update_one(
+                    {"_id": conversation["_id"]},
+                    {"$set": {
+                        "answers": updated_answers,
+                        "messages": updated_messages,
+                        "updated_at": now,
+                    }},
+                )
+                # If requirements/preferences were updated during the follow-up, sync to enquiry document
+                lead_update = {}
+                for f_key in [
+                    "location_preference", "bhk_preference", "budget_range",
+                    "planning_to_buy", "payment_option", "remarks_requirements"
+                ]:
+                    if updated_answers.get(f_key):
+                        lead_update[f_key] = updated_answers[f_key]
+                if lead_update:
+                    lead_update["requirement_summary"] = requirements_summary(updated_answers)
+                    lead_update["requirement"] = updated_answers.get("remarks_requirements") or lead_update.get("requirement_summary", "")
+                    lead_update["updated_at"] = now
+                    try:
+                        await request.app.state.enquiries.update_one(
+                            {"whatsapp_conversation_id": str(conversation["_id"])},
+                            {"$set": lead_update},
+                        )
+                    except Exception:
+                        logger.exception("Could not update enquiry with follow-up changes")
+            else:
+                await conversations.update_one(
+                    {"_id": conversation["_id"]},
+                    {"$set": {
+                        "answers": updated_answers,
+                        "messages": updated_messages,
+                        "status": "in_progress",
+                        "updated_at": now,
+                    }},
+                )
+
+            return twiml(reply_text)
 
     # Free-text property qualification flow shown in the project workflow.
     if stage in {"collecting_requirements", "clarify_location", "clarify_budget", "clarify_bhk", "special_requirements"}:
@@ -1034,7 +2527,7 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
         lead = {
             "first_name": updated_answers.get("first_name", ""),
             "last_name": updated_answers.get("last_name", ""),
-            "full_name": full_name,
+            "full_name": full_name or f"{updated_answers.get('first_name', '')} {updated_answers.get('last_name', '')}".strip(),
             "email": updated_answers.get("email", ""),
             "mobile_number": updated_answers.get("mobile_number", phone),
             "location_preference": updated_answers.get("location_preference", ""),
@@ -1043,6 +2536,7 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             "payment_option": updated_answers.get("payment_option", ""),
             "bhk_preference": updated_answers.get("bhk_preference", ""),
             "remarks_requirements": updated_answers["remarks_requirements"],
+            "requirement": updated_answers.get("remarks_requirements", ""),
             "requirement_summary": requirements_summary(updated_answers),
             "whatsapp_number": phone,
             "whatsapp_conversation_id": conversation_id,
@@ -1051,50 +2545,15 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             "created_at": conversation.get("created_at", now),
             "completed_at": now,
         }
-        try:
-            lead_result = await request.app.state.enquiries.update_one(
-                {"whatsapp_conversation_id": conversation_id}, {"$set": lead}, upsert=True
-            )
-        except Exception:
-            logger.exception("Could not save WhatsApp enquiry")
-            return twiml("Sorry, I couldn't save that just now. Please send 'resume' and I'll try again.")
-
-        contact_id = conversation.get("contact_id")
-        if contact_id:
-            try:
-                await request.app.state.contacts.update_one(
-                    {"_id": ObjectId(contact_id)},
-                    {"$set": {"whatsapp_answers": updated_answers, "whatsapp_flow_status": "complete"}},
-                )
-            except Exception:
-                logger.exception("Could not attach WhatsApp answers to contact")
-        await conversations.update_one(
-            {"_id": conversation["_id"]},
-            {"$set": {"answers": updated_answers, "status": "complete", "stage": "complete", "property_lead_id": str(lead_result.upserted_id) if lead_result.upserted_id else None, "updated_at": now}},
+        lead, local_id = await complete_and_qualify_whatsapp_lead(
+            request, conversation, updated_answers, background_tasks
         )
-        background_tasks.add_task(
-            sync_zoho_lead,
-            {**lead, "full_name": full_name or " ".join(name_parts), "source": "WhatsApp property questionnaire", "local_id": str(lead_result.upserted_id or conversation_id)},
+        completion_msg = format_completion_summary_message(
+            updated_answers,
+            schedule_url=schedule_page_url(),
+            lang=updated_answers.get("language", "en"),
         )
-        background_tasks.add_task(
-            send_salesperson_notification,
-            "Completed WhatsApp property enquiry",
-            {
-                "Name": lead["full_name"],
-                "Email": lead["email"],
-                "Contact number": lead["mobile_number"],
-                "Location preference": lead["location_preference"],
-                "Buying timeline": lead["planning_to_buy"],
-                "Budget": lead["budget_range"],
-                "Payment preference": lead["payment_option"],
-                "Property type": lead["bhk_preference"],
-                "Conversation summary": lead["requirement_summary"],
-                "Special requirements": lead["remarks_requirements"],
-                "WhatsApp conversation ID": conversation_id,
-                "Calendly booking": "Not scheduled yet",
-            },
-        )
-        return twiml(f"Thank you, {updated_answers.get('first_name') or 'there'}! Your enquiry is saved. Our team will follow up with you shortly.")
+        return twiml(completion_msg)
 
     if stage == "q5_location_checking":
         # Recover conversations left in the old background-check state after a
@@ -1277,70 +2736,15 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
         return twiml(menu_fallback("q6_planning"))
     elif stage == "q10_remarks":
         answers["remarks_requirements"] = "" if text.casefold() == "skip" else text[:1000]
-        conversation_id = str(conversation["_id"])
-        lead = {
-            "first_name": answers.get("first_name", ""),
-            "last_name": answers.get("last_name", ""),
-            "email": answers.get("email", ""),
-            "mobile_number": answers.get("mobile_number", phone),
-            "location_preference": answers.get("location_preference", ""),
-            "planning_to_buy": answers.get("planning_to_buy", ""),
-            "budget_range": answers.get("budget_range", ""),
-            "payment_option": answers.get("payment_option", ""),
-            "bhk_preference": answers.get("bhk_preference", ""),
-            "remarks_requirements": answers.get("remarks_requirements", answers.get("remarks", "")),
-            "whatsapp_number": phone,
-            "whatsapp_conversation_id": conversation_id,
-            "contact_id": conversation.get("contact_id"),
-            "source": "contact_us_whatsapp",
-            "created_at": conversation.get("created_at", datetime.now(timezone.utc)),
-            "completed_at": datetime.now(timezone.utc),
-        }
-        try:
-            lead_result = await request.app.state.enquiries.update_one(
-                {"whatsapp_conversation_id": conversation_id},
-                {"$set": lead},
-                upsert=True,
-            )
-        except Exception:
-            logger.exception("Could not save WhatsApp questionnaire to property_leads")
-            return twiml("Sorry, I couldn't save your answers just now. Please send your remarks again.")
-
         first_name = answers.get("first_name", "there")
-        calendly_link = schedule_page_url()
-        completion_message = (
-            f"\u2705 Thank you, {first_name}! Our team will contact you shortly with matching options."
-            f"\n\nChoose a convenient date and time to meet here: {calendly_link}"
+        completion_message = format_completion_summary_message(
+            answers,
+            first_name=first_name,
+            schedule_url=schedule_page_url(),
+            lang=answers.get("language", "en"),
         )
-        background_tasks.add_task(
-            sync_zoho_lead,
-            {
-                **lead,
-                "full_name": " ".join(
-                    part for part in (lead["first_name"], lead["last_name"]) if part
-                ),
-                "source": "WhatsApp property questionnaire",
-                "local_id": str(lead_result.upserted_id or conversation_id),
-            },
-        )
-        contact_id = conversation.get("contact_id")
-        if contact_id:
-            try:
-                await request.app.state.contacts.update_one(
-                    {"_id": ObjectId(contact_id)},
-                    {"$set": {"whatsapp_answers": answers, "whatsapp_flow_status": "complete"}},
-                )
-            except Exception:
-                logger.exception("Could not attach WhatsApp answers to contact %s", contact_id)
-        await conversations.update_one(
-            {"phone": phone},
-            {"$set": {
-                "answers": answers,
-                "status": "complete",
-                "stage": "complete",
-                "property_lead_id": str(lead_result.upserted_id) if lead_result.upserted_id else None,
-                "updated_at": datetime.now(timezone.utc),
-            }},
+        lead, local_id = await complete_and_qualify_whatsapp_lead(
+            request, conversation, answers, background_tasks
         )
         return twiml(completion_message)
     else:
